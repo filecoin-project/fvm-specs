@@ -19,6 +19,8 @@ This is the home of the FVM project in Filecoin.
 
 ## Context and goals
 
+_See discussion in FIPs repo: https://github.com/filecoin-project/FIPs/issues/113_
+
 Filecoin today lacks general programmability. As a result, it is not possible to deploy user-defined behaviour, or "smart contracts", to the blockchain.
 
 The closest thing that Filecoin has is a **discrete** set of **embedded** smart contracts, denominated [system "actors"](https://spec.filecoin.io/#section-systems.filecoin_vm.sysactors). They provide the logic for elements like storage power accounting, deal-making, payment channels, scheduled execution, and more. But their functionality is hardcoded as per the specs.
