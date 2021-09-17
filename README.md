@@ -1,4 +1,4 @@
-# Filecoin FVM
+# Filecoin VM
 
 This is the home of the FVM project in Filecoin.
 
