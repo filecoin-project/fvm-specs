@@ -2,6 +2,21 @@
 
 This is the home of the FVM project in Filecoin.
 
+**Contents**
+
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+
+
+- [Context and goals](#context-and-goals)
+- [About this effort](#about-this-effort)
+- [About this repo](#about-this-repo)
+- [Document index](#document-index)
+- [Experiments](#experiments)
+- [License](#license)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
 ## Context and goals
 
 Filecoin today lacks general programmability. As a result, it is not possible to deploy user-defined behaviour, or "smart contracts", to the blockchain.
@@ -36,7 +51,7 @@ Code and prototypes will usually be hosted in separate repos, linked from here f
 This repo will incubate the [FIP (Filecoin Improvement Proposal)](https://github.com/filecoin-project/FIPs) that shall formally introduce this capability into the network.
 </details>
 
-## Content index
+## Document index
 
 > ⚠️  These documents are being drafted.
 
