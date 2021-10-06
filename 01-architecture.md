@@ -2,6 +2,33 @@
 
 This documents provides an overview of the architecture of the FVM, including a small summary of the current VM as an annex at the end.
 
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+**Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
+
+- [Overview](#overview)
+- [Native VM](#native-vm)
+- [Built-in system actors](#built-in-system-actors)
+- [Actor sandbox](#actor-sandbox)
+- [Actor public interface](#actor-public-interface)
+- [IPLD everything](#ipld-everything)
+- [State access](#state-access)
+- [Chain access](#chain-access)
+- [Actor deployment](#actor-deployment)
+- [Cross-actor calls](#cross-actor-calls)
+- [Call patterns](#call-patterns)
+- [Syscalls](#syscalls)
+- [Gas accounting](#gas-accounting)
+- [WASM interpreters](#wasm-interpreters)
+- [JSON-RPC API](#json-rpc-api)
+- [Interoperability with other networks](#interoperability-with-other-networks)
+- [Formal verifiability](#formal-verifiability)
+- [Upgradability](#upgradability)
+- [Annex: Current VM](#annex-current-vm)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
+
 ## Overview
 
 ![Proposed VM architecture](img/proposed-vm-arch.png)
@@ -168,7 +195,7 @@ At this point, the actor is ready to be instantiated through the standard `Exec`
 
 <!-- at different layers, incl. evm shim -->
 
-# Annex: Current VM
+## Annex: Current VM
 
 ![Current VM architecture](img/current-vm-arch.png)
 
