@@ -8,19 +8,19 @@ This documents provides an overview of the architecture of the FVM, including a 
 
 The FVM aims to (a) support a multitude of programming models for actors and (b) facilitate the onboarding of smart contracts and programs written for other environments, so they can leverage the storage capabilities of the Filecoin network.
 
-Its architecture is inspired by the [hypervisor](https://en.wikipedia.org/wiki/Hypervisor) concept from the world of Virtual Machines. It is not however _a_ hypervisor architecture, as user-space actors run directly on top of the native layer.
+Its architecture is inspired by the [hypervisor](https://en.wikipedia.org/wiki/Hypervisor) concept from the world of Virtual Machines. The abstraction is not translated directly, though.
 
-**Native VM**
+## Native VM
 
 The native runtime will be based on WebAssembly (WASM), with potential usage of a limited set of WebAssembly System Interface (WASI) APIs.
 
-**Built-in system actors**
+## Built-in system actors
 
 The existing built-in system actors will be compiled to WASM and will run entirely in WASM space, thus preventing any associated FFI barrier costs.
 
 For the sake of analogy, built-in system actors in Filecoin receive comparable treatment to "precompiled contracts" in other platforms. They are specified by the protocol, implicitly deployed, addressed at fixed locations/mailboxes, and they evolve through system upgrades.
 
-_Canonical system actors_
+**Canonical system actors**
 
 This transition to WASM opens up the opportunity to converge on a single codebase of actors for all Filecoin implementations.
 
@@ -28,7 +28,7 @@ In the past, each team would re-implement actors in their language (although som
 
 We acknowledge this strategy has tradeoffs, but we won't elaborate on them here.
 
-**Actor sandbox**
+## Actor sandbox
 
 The actor sandbox is the tightly constrained and instrumented environment in which Filecoin actor code runs.
 
@@ -52,38 +52,55 @@ One key constraint is that actor code size/footprint should be kept as low as po
 
 We could also add the ability to deploy libraries as on-chain actors; this would lead to a richer development experience and we'd expect collections of reusable libraries to emerge and be deployed on-chain, for others to consume. This is similar to the use cases of the `CALLDELEGATE` opcode in the EVM. But we'd probably tighten the security characteristics by introducing the notion of "capabilities", such that the calling actor can specify exactly what the target can access.
 
-**Actor public interface**
+## Actor public interface
 
-There are several alternatives:
+We considered two main approaches. Hybrids of these two approaches were also evaluated.
 
-1. The outer layer performs method dispatch, against an exported table of callable methods defined by the actor.
-   - A standard/universal calling convention exists for method identification (current numerical method ID, string-based method ID, or something else).
-   - Pros:
-     - The environment can be aware of special methods such as "upgrade".
-     - IPLD schemas can be exported and environment can do type/contract checks.
-     - Makes actor interface introspectable.
-   - Cons:
-     - VM likely needs to maintain a cache to avoid analysing the exports table every time an actor is invoked.
-     - Complicates actor evolution (if we decide to support code mutability), as environment needs to deal with interface changes.
-     - Potential incompatibility in dealing with foreign VMs that do internal dispatch (e.g. EVM).
-2. The actor exposes a single entrypoint (e.g. run), and performs internal method dispatch.
-    - Calling convention is opaque and VM-specific.
-    - Method number can be one of three:
-      - 0: constructor.
-      - 1: send.
-      - 2: upgrade.
-    - Pros:
-      - Supports VMs that rely on internal dispatch (e.g. EVM).
-      - Environment stays agnostic to actor evolution.
-      - Simpler; removes complexity from the environment.
-      - Higher flexibility to accommodate sophisticated method dispatch, e.g. structural pattern matching, logic versioning, low-level proxying, etc.
-    - Cons:
-      - Because the calling convention is VM-specific, in cross-contract calls, the caller needs to know the VM type of the callee so it can pack the call adequately.
+**Approach 1 is external method dispatch.** The actor exports a table of callable methods. The sandbox matches the message to an exported method, either through the `MethodNum` message field, or by interpreting the input parameters string against a calling convention. This is largely how the current VM works today.
 
-We lean towards (2), and this places some constraints on usability:
+**Approach 2 is for actors to expose a single entrypoint and rely on internal method dispatch.** This awards maximal degrees of freedom and sophistication to support techniques such as structural pattern matching, efficient pass-through proxying, interception, and more.
 
-- SDK should provide utilities to facilitate internal dispatch based on method number _and_ VM's calling convention.
-- SDK should provide functions to pack message calls to foreign actors.
+Because internal dispatch will rapidly become boilerplate, the FVM SDK should offer utilities.
+
+Architecturally speaking, Approach 2 is more aligned with the actor model as implemented in the industry (Erlang, Akka, etc.), in which actors interact through single inboxes where messages are deposited.
+
+Approach 2 is simpler, and places no constraints on the sandbox. It is easier to reason about and reduces overall complexity. It's also more performant because the sandbox has no need to analyse the WASM exports table. Evolving actors over time (such as introducing interface changes) is also easier to reason about.
+
+Finally, this approach is readily compatible with VMs that rely on internal dispatch (e.g. EVM), but also stretches to accommodates for VMs that perform outer dispatch.
+
+Approach 2 would render the `MethodNum` field on messages obsolete, as external dispatch is no longer necessary, and all call information would be contained in the input parameters.
+
+We _could_ technically preserve the `MethodNum`, and have actors perform internal dispatch based on that _and_ input parameters. But we believe that's unnecessary cruft, and it breaks the actor-orientation paradigm by carrying over a procedural construct.
+
+Not everything is rosy, though. The main risk with Approach 2 is that the calling convention not explicited, which may lead to proliferation of calling conventions across user-deployed actors. In turn this may result in cognitive overhead and interoperability issues.
+
+An IPLD-based Interface Definition Language should eliminate that concern. 
+
+**Future: IPLD-based IDLs**
+
+IPLD Schemas are good for defining the structure of objects, but they do not help with expressing the interface of behaviours an object can offer (e.g. methods), inputs, and outputs.
+
+Our basic idea is to design an IPLD schema for IDLs; think of [gRPC IDLs](https://grpc.io/docs/what-is-grpc/core-concepts/), [SOAP WSDL](https://www.w3schools.com/xml/xml_wsdl.asp), etc. This schema would be standardised and versioned, and understood by the FVM SDK.
+
+This IDL would not have functions as such, but rather _labelled behaviours_. This is consistent with the actor model, where actors don't expose functions, but they are known to provide behaviours.
+
+Each behaviour would carry an IPLD Schema for the input type and the return value type, an error code enum, and potentially an identifier (which incidentally could be a method number!) to facilitate internal dispatch.
+
+Traditional "overloaded functions" can be represented as distinct labelled behaviours dispatching to the same identifier.
+
+The FVM SDK would offer utilities to pack/generate calls to another actor with their IDL.
+
+_Pseudocode:_
+
+```
+import "idls/other-actor.idl.ipld" as actor
+from sdk import calls
+
+// Res is typed automatically as Result<Type, Error>
+let res = calls.target(actor)
+               .call("behaviour")
+               .with({ Field2: Value, Field2: [Value1, Value2]})
+```
 
 **Test sandbox**
 
@@ -101,17 +118,17 @@ Each foreign runtime will require a shim to translate the storage model, gas acc
 
 This is the case of logs/events in the EVM, which may be stored in a central EVM logs actor.
 
-**IPLD everything**
+## IPLD everything
 
-<!-- ipld-wasm library, codecs, selectors -->
+<!-- ipld-wasm library, codecs, selectors, IPLD code representation -->
 
-**State access**
+## State access
 
 <!-- avoiding excessive boundary costs, garbage collection -->
 
-**Chain access**
+## Chain access
 
-**Actor deployment**
+## Actor deployment
 
 The current InitActor (`f00`) will be extended with a (`LoadActor`) method that takes the actor's WASM bytecode as an input parameter and, potentially, the sandbox version (see above).
 
@@ -129,26 +146,25 @@ It will:
 
 At this point, the actor is ready to be instantiated through the standard `Exec` call of the `InitActor`. Any params provided will be passed through to the actor's constructor (method number = 0).
 
-**Cross-actor calls**
+## Cross-actor calls
 
-**Calling conventions**
+## Call patterns
 
 <!-- single entrypoint; sync only; future async; parallel execution; IPLD schemas -->
 
+## Syscalls
 
-**Syscalls**
+## Gas accounting
 
-**Gas accounting**
+## WASM interpreters
 
-**WASM interpreters**
+## JSON-RPC API
 
-**JSON-RPC API**
+## Interoperability with other networks
 
-**Interoperability with other networks**
+## Formal verifiability
 
-**Formal verifiability**
-
-**Upgradability**
+## Upgradability
 
 <!-- at different layers, incl. evm shim -->
 
