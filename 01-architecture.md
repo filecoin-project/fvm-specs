@@ -13,22 +13,19 @@ This documents provides an overview of the architecture of the FVM, including a 
 - [Execution architecture](#execution-architecture)
   - [FVM](#fvm)
   - [Invocation Container (IC)](#invocation-container-ic)
-  - [Boundaries](#boundaries)
+  - [Domains and boundaries](#domains-and-boundaries)
   - [FVM syscalls](#fvm-syscalls)
   - [FVM SDK](#fvm-sdk)
 - [Actor public interface](#actor-public-interface)
 - [IPLD everything](#ipld-everything)
 - [State access](#state-access)
-- [Chain access](#chain-access)
 - [Actor deployment](#actor-deployment)
 - [Call patterns](#call-patterns)
-- [Syscalls](#syscalls)
 - [Gas accounting](#gas-accounting)
-- [WASM runtimes](#wasm-runtimes)
 - [JSON-RPC API](#json-rpc-api)
 - [Interoperability with other networks](#interoperability-with-other-networks)
 - [Formal verifiability](#formal-verifiability)
-- [Upgradability](#upgradability)
+- [Upgradability opportunities](#upgradability-opportunities)
 - [Annex: Current VM](#annex-current-vm)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -40,7 +37,7 @@ This documents provides an overview of the architecture of the FVM, including a 
 
 The FVM aims to (a) support a multitude of programming models for actors and (b) facilitate the onboarding of smart contracts and programs written for other environments, so they can leverage the storage capabilities of the Filecoin network.
 
-The architecture is largerly inspired by [VM hypervisors](https://en.wikipedia.org/wiki/Hypervisor) and the [actor model](https://en.wikipedia.org/wiki/Actor_model). 
+The architecture is largerly inspired by [VM hypervisors](https://en.wikipedia.org/wiki/Hypervisor) and the [actor model](https://en.wikipedia.org/wiki/Actor_model), amongst others paradigms.
 
 ## Actors
 
@@ -56,7 +53,7 @@ We distinguish three types of actors:
 
 The native FVM runtime is WebAssembly (WASM), and users can technically write actors in any programming that compiles to WASM.
 
-However, there are language-specific overheads that users need to be aware of (e.g. runtime, garbage collection, stdlibs, etc.) They affect the WASM output leading to bloated WASM bytecode and inefficient execution.
+However, there are language-specific overheads that users need to be aware of (e.g. runtime, garbage collection, stdlibs, etc.) They affect the WASM output leading to bloated WASM bytecode and inefficient execution. There will be on-chain code size limits to consider too.
 
 Rust is our primary language recommendation for writing efficient user-defined actors. Hence, the reference FVM SDK is built in Rust.
 
@@ -100,30 +97,38 @@ We acknowledge this strategy has tradeoffs, but we won't elaborate on them here.
 
 ### FVM
 
-The FVM is implemented in Rust. It serves as an orchestration layer for ICs, resolves Boundary B syscalls (where possible), relays syscalls to Boundary A, manages cross-actor calls, and manages staged IPLD data.
+The FVM is implemented in Rust. It is responsible for:
 
-> **Draft content.**
-> Cross actor calls are mediated by the FVM. Actor code that performs a call ends up invoking a syscall that traverses Boundary A.
-> Call stack manager manages the creation and destruction of Invocation Containers for every call.
+1. Setting up Invocation Containers, managing their lifetime and stacking. This include setting up the WASM runtime, its managed memory, binding syscalls as host-provided functions, and potentially mapping dynamically-linked libraries (e.g. predefined sdk versions).
+2. Serving as a call orchestration layer across actors.
+3. Resolving Boundary B syscalls where possible within the FVM.
+4. Relaying Boundary B syscalls to Boundary A syscalls where the above is unfeasible.
+5. Managing IPLD state tree data, by buffering writes from actors running in ICs until execution succeeds, maintaining caches, optimising access patterns (e.g. optimistic fetches), and more.
 
 ### Invocation Container (IC)
 
-The Invocation Container (IC) is the tightly constrained and instrumented environment in which Filecoin actor code runs within the context of a single invocation.
+The Invocation Container (IC) is the tightly constrained and instrumented environment that runs actor code within the context of a single invocation, in isolation with the rest of the system.
 
-The IC is a WASM runtime fulfilling the FVM contract. This consists of:
+The IC is an instance of a WASM runtime (likely Wasmer) fulfilling the FVM contract. The contract consists of:
 
 1. FVM-defined syscalls available as imported functions.
 2. FVM-managed memory. Only statically-sized data such as message CID, epoch, gas limit, due to technical limitations (need to investigate more).
-3. Gas accounting via WASM bytecode compiler weaving and/or instrumentation.
+3. Gas accounting and execution halting via WASM bytecode compiler weaving and/or instrumentation.
 4. Dynamically-linked "blessed" imported WASM modules (e.g. named FVM SDK versions) to reduce bytecode size.
 
-A direct or indirect recursive calls to an actor spawn a new IC.
+A direct or indirect recursive or reentrant call to an actor spawns a new IC.
 
-Because the FVM contract may change over time, user-deployed actors must specify an IC version.
+Because the FVM contract may change over time, user-deployed actors must specify an IC version at [`InitActor#LoadActor` time](#actor-deployment).
 
-### Boundaries
+### Domains and boundaries
 
-There are two cross-technology boundaries to be analyzed individually. We'll call them Boundary A and Boundary B.
+There are three domains of execution we are concerned with for the purposes of this design doc:
+
+- Domain 1: Actor code inside Invocation Container (WASM).
+- Domain 2: FVM (Rust).
+- Domain 3: Node (any language).
+
+These three domains result in two well-defined domain boundaries that possess different characteristics. We'll call them Boundary A and Boundary B.
 
 **Boundary A: Node <> FVM (Rust)**
 
@@ -144,25 +149,59 @@ This boundary is incurred every time actor code invokes a syscall. The syscall i
 
 Because the WASM <> Rust FFI mechanisms are relatively cheap, the cost of this boundary is lower than that of Boundary A. Therefore, we strive to resolve most of the syscalls within the scope of the FVM for faster performance.
 
+*Opportunity rust-fil-proofs.* [rust-fil-proofs](https://github.com/filecoin-project/rust-fil-proofs) implements the Filecoin proofs (PoRep, PoSt) and related cryptographic primitives in Rust, for performance reasons. The library is integrated in Lotus via Cgo in is the implementation of the Filecoin storage proofs implemented in Rust for performance rasons. in  is integrated into non-Rust clients via FFI. 
+
 ### FVM syscalls
 
-TBD.
+Pre-FVM, the term "syscalls" referred to a predetermined set of cryptographic functions available to built-in system actors, each with an associated gas cost.
+
+- BatchVerifySeals
+- ComputeUnsealedSectorCID
+- HashBlake2b
+- VerifyAggregateSeals
+- VerifyConsensusFault
+- VerifyPoSt
+- VerifySeal
+- VerifySignature
+
+Post-FVM, the term "syscall" matches the Unix concept more closely. It represents the fundamental interface between any two execution areas. As such, there are syscalls at both boundaries:
+
+- Boundary A syscall: the fundamental interface between the FVM and the node.
+- Boundary B syscall: the fundamental interface between the actor and the FVM.
+
+Examples of post-FVM syscalls are:
+
+- `CurrEpoch()`
+- `NetworkVersion()`
+- `CurrentBalance()`
+- `ResolveAddress()`
+- `GetActorCodeCID()`
+- `GetRandomessFromBeacon()`
+- `GetRandomnessFromTickets()`
+- `Send()`
+- IPLD state operations (read, write, open, close)
+- all the above crypto operations.
+
+Essentially, all methods listed on the current specs-actors [`Runtime` interface](https://github.com/filecoin-project/specs-actors/blob/master/actors/runtime/runtime.go) translate into syscalls.
+
+However, frugality is also a concern. There are opportunities to elide the actual syscall by, for example, mapping static fields as externally-managed WASM memory (e.g. current epoch, network version), or to avoid Boundary A syscalls through caching, optimistic optimisations, or providing the behaviour within the FVM domain.
 
 ### FVM SDK
 
-> This content is being revised.
+The FVM SDK is a versioned library that makes it easy to write actors for the Filecoin Network. At its core, the SDK is aware of the FVM contract and facilitates interaction of actor code with its environment.
 
-1. To provide binding to Boundary B syscalls.
-2. To provide a toolbox of common functions and types, such as BigInt arithmetic, parameter unpacking, method dispatch tables, etc.
-3. To manage memory usage and halt execution when it exceeds the limits.
-4. To load input call parameters and handle return values.
-5. To intercept cross contract calls and delegate to the outer environment.
-6. To perform gas accounting by instrumenting bytecode.
-7. To halt execution when available gas is exhausted.
+The reference implementation of the FVM SDK is written in Rust.
 
-(1) and (2) together form the basis of the **FVM stdlib**: the set of APIs that are universally available for actors to call inside the invocation container.
+We envision the SDK to be a stack of our layers, from lowest to highest:
 
-One key constraint is that actor code size/footprint should be kept as low as possible to avoid state bloat and gas costs. (2) is important, as it precludes repetitive/common code from being statically linked to user-deployed actors.
+1. Syscall definitions/bindings. These are considered plumbing; most developers won't interact with these, but they're necessary to invoke syscalls.
+2. Thin syscall wrappers. These are less horrible counterparts to the low-level syscall bindings that use higher-order types.
+3. Higher-level APIs offering elemental abstractions and components, such as the blockstore, IPLD interfaces, internal method dispatch, parameter and call convention packing/unpacking, etc.
+4. Libraries on top of the latter that implement IPLD-based data structures, such as ADLs, HAMTs, struct binding to params, annotation-based method dispatch, cross-actor call templating, etc.
+
+Together, (1) and (2) form the basis of the **FVM stdlib**.
+
+We recognise that some libraries within layer (4) may be inefficient to execute in WASM land (such as BigInt arithmetic). We may deal with this by escaping the WASM runtime and translating such operations to syscalls that run in the FVM domain. However, gas accounting becomes difficult in such cases, as we'd have to pollute the gas schedule with specific operations.
 
 We could also add the ability to deploy libraries as on-chain actors; this would lead to a richer development experience and we'd expect collections of reusable libraries to emerge and be deployed on-chain, for others to consume. This is similar to the use cases of the `CALLDELEGATE` opcode in the EVM. But we'd probably tighten the security characteristics by introducing the notion of "capabilities", such that the calling actor can specify exactly what the target can access.
 
@@ -250,16 +289,17 @@ _A word about IPLD codecs_
 
 With regards to codecs, special attention needs to be paid to their scope of execution and their gas accounting: do they pay gas as if normal code, or are they "free" to the caller? Do they execute inside the IC, or in FVM space?
 
-Dependindg on what we settle, we may designate a set of "blessed" system codecs which are exempted from paying gas.
+Depending on what we settle, we may designate a set of "blessed" system codecs which are exempted from paying gas.
 
 ## State access
 
-> **Content being drafted.**
-> As mentioned above, Filecoin state is highly atomized. Accessing and mutating entries in map an array ADLs is a N-step operation, where all steps are sequential.
+Efficient state access is a major concern, and has the potential to become a performance bottleneck. The state store currently lives in the node side, which means that actors need to traverse Boundary A (slow) to access state items.
 
-<!-- avoiding excessive boundary costs, garbage collection -->
+Because Filecoin IPLD state objects are highly atomized and linked, accessing and mutating entries in objects like HAMTs and AMT (quite prevalent) results in multiple _sequential_ state IO operations, each of which traverses Boundary A in a non-parallelizable way. Boundary A is a slow boundary, and we should measure the performance loss to figure out if it's worth exploring alternative designs, such as migrating ownership of the state store to the FVM such that Boundary A traversals can be prevented.
 
-## Chain access
+Another concern is state growth. The Lotus implementation offers a self-pruning store ([splitstore](https://github.com/filecoin-project/lotus/discussions/5788)), but the garbage collection algorithms rely on periodic state tree walking, which will get more expensive as the state tree grows with arbitrary user data.
+
+Therefore, we consider it necessary to invest in native support for garbage collection with techniques such as refcounting.
 
 ## Actor deployment
 
@@ -286,38 +326,33 @@ The `InitActor` should be callable from within the FVM itself to enable self-evo
 
 ## Call patterns
 
-<!-- single entrypoint; sync only; future async; parallel execution; IPLD schemas -->
+The FVM will initially support synchronous calls between actors. Cross-actor calls will incur in Boundary B, and the FVM will incur in Boundary A to load the callee's code and root state.
 
-## Syscalls
+Callers will need to observe the calling conventions of the callee to ensure the call is understood and processed. The SDK will offer utilities to pack calls according to EVM and standard calling conventions.
 
-Pre-FVM, the term "syscalls" referred to a predetermined set of cryptographic functions accessible by built-in system actors, each with an associated gas cost.
+In the future, we aim to support asynchronous calls, and we have discussed development patterns like callbacks, continuations, async/await, promises, and others.
 
-- BatchVerifySeals
-- ComputeUnsealedSectorCID
-- HashBlake2b
-- VerifyAggregateSeals
-- VerifyConsensusFault
-- VerifyPoSt
-- VerifySeal
-- VerifySignature
-
-Post-FVM, we redefine the term "syscalls" to refer to every action that implies traversing Boundary B, and potentially Boundary A.
+This is especially important in a sharded blockchain design, where actor code and state is not available immediately in the caller's chain. Parallel execution must also be supported by the future asynchronous call models.
 
 ## Gas accounting
 
 Gas accounting will be performed at the bytecode level, leveraging the metering facilites provided by the WASM runtimes under consideration (Wasmer, Wasmtime).
 
-## WASM runtimes
-
 ## JSON-RPC API
+
+Filecoin nodes will begin offering JSON-RPC methods to call actor methods and access actor state.
 
 ## Interoperability with other networks
 
+TBD.
+
 ## Formal verifiability
 
-## Upgradability
+TBD.
 
-<!-- at different layers, incl. evm shim -->
+## Upgradability opportunities
+
+TBD.
 
 ## Annex: Current VM
 
