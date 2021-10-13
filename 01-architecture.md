@@ -1,5 +1,9 @@
 # Filecoin VM architecture
 
+> v0, early October 2021
+> Authors: @raulk, @stebalien.
+> Contributors: @expede, @aronchick, @bmann
+
 This documents provides an overview of the architecture of the FVM, including a small summary of the current VM as an annex at the end.
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
