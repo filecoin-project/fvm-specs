@@ -58,7 +58,7 @@ This repo will incubate the [FIP (Filecoin Improvement Proposal)](https://github
 > ⚠️  These documents are being drafted.
 
 - [`00-introduction.md`](./00-introduction.md): summarizes vision, goals, assumptions, and requirements of this project.
-- [`01-technical-architecture.md`](./01-technical-architecture.md): details the proposed architecture.
+- [`01-architecture.md`](./01-architecture.md): details the proposed architecture.
 - [`02-state-of-the-art.md`](./02-state-of-the-art.md): analyses the state of the art concerning WASM+Blockchain, and concrete case studies of programmability in other blockchains.
 - [`03-impl-exploration.md`](./03-impl-exploration.md): notes on potential implementation.
 - [`04-evm-compat.md`](./04-evm-compat.md): EVM compatibility proposals and notes.
