@@ -26,10 +26,10 @@ This documents provides an overview of the architecture of the FVM, including a 
 - [Actor deployment](#actor-deployment)
 - [Call patterns](#call-patterns)
 - [Gas accounting](#gas-accounting)
+- [Actor code updates](#actor-code-updates)
 - [JSON-RPC API](#json-rpc-api)
 - [Interoperability with other networks](#interoperability-with-other-networks)
 - [Formal verifiability](#formal-verifiability)
-- [Upgradability opportunities](#upgradability-opportunities)
 - [Annex: Current VM](#annex-current-vm)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -345,6 +345,27 @@ This is especially important in a sharded blockchain design, where actor code an
 
 Gas accounting will be performed at the bytecode level, leveraging the metering facilites provided by the WASM runtimes under consideration (Wasmer, Wasmtime).
 
+## Actor code updates
+
+The FVM aims to support updating actor code. This choice diverges from the "code immutability" paradigm that Ethereum made popular. That paradigm is empowering on one hand (the user has the guarantee to always be dealing with the same code), but limiting on the other (software is never static).
+
+The reality is that software evolves continuously driven by feature development, improvements, bug fixing, security patching, and software maintenance (adaptive, corrective, preventive, perfective). Smart contracts _are_ software, and they are not exempted from the need of evolution.
+
+To work around the EVM limitations, Dapp developers have widely adopted the ["upgradable proxy"](https://docs.openzeppelin.com/upgrades-plugins/1.x/proxies)pattern, but this comes at the cost of extra complexity (including `DELEGATECALL` quirks), boilerplate, and yet another point of failure.
+
+In Filecoin, we rely on content-addressed code as a foundational building block to enable code upgradability. Actors have an address, but code is not deployed at that address (like in the EVM); instead it is linked to a CID in the state tree.
+
+This decoupling makes it feasible to atomically update actor code. Doing so would imply:
+
+1. Loading new actor code and obtaining a code CID; see [Actor deployment](#actor-deployment)
+2. Calling an `UpdateCode` syscall from within the actor, with the new code CID.
+
+All future messages directed to this actor will use the new code.
+
+Authentication and security behind code updates are entirely in actor space; therefore, actors are free to implement the checks, guards and logic that ultimately lead to the invocation of the `UpdateCode` syscall. Tooling can also be implemented to statically determine that an actor is _not calling_ this function this.
+
+We may consider adding an optional `CodeCID` parameter to messages to enable sensitive senders to condition the execution of a message to a particular actor code version. This may be useful when the sender has performed prior code audit/verification, and wants to limit the execution to the audited version, or to deal with scheduled actor updates.
+
 ## JSON-RPC API
 
 Filecoin nodes will begin offering JSON-RPC methods to call actor methods and access actor state.
@@ -354,10 +375,6 @@ Filecoin nodes will begin offering JSON-RPC methods to call actor methods and ac
 TBD.
 
 ## Formal verifiability
-
-TBD.
-
-## Upgradability opportunities
 
 TBD.
 
