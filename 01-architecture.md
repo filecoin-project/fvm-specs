@@ -128,32 +128,34 @@ Because the FVM contract may change over time, user-deployed actors must specify
 
 ### Domains and boundaries
 
-There are three domains of execution we are concerned with for the purposes of this design doc:
+There are three logical domains of execution we are concerned with for the purposes of this design doc:
 
-- Domain 1: Actor code inside Invocation Container (WASM).
-- Domain 2: FVM (Rust).
-- Domain 3: Node (any language).
+- Domain 1: Node (any language).
+- Domain 2: FVM (reference implementation written in Rust).
+- Domain 3: Invocation Container running actor code (WASM).
 
 These three domains result in two well-defined domain boundaries that possess different characteristics. We'll call them Boundary A and Boundary B.
 
-**Boundary A: Node <> FVM (Rust)**
+![Domains and boundaries](img/fvm-domains-boundaries.png)
+
+**Boundary A: Node \[domain 1] <> FVM \[domain 2]**
 
 This boundary is incurred when:
 
-1. the node initiates the processing of a message by instantiating the FVM, or 
+1. the node initiates the processing of a message by instantiating the FVM, or
 2. the FVM calls out to native functions provided by the node to resolve syscalls.
 
-Depending on node's language, this boundary may carry a non-negligible cost, although admittedly that cost may be overshadowed by the cost of the operation itself (e.g. if it involves disk IO, or an expensive cryptographic calculation).
+Depending on node's language, this boundary may carry a non-negligible cost. Although admittedly, that cost may be overshadowed by the cost of the operation itself (e.g. if it involves disk IO, or an expensive cryptographic calculation).
 
-It's nevertheless important to optimize the system by minimizing the traversals through this boundary to avoid performance leaks by "death by a thousand cuts".
+Where performance is important, implementors should attempt to resolve most syscalls within domain 2, to avoid traversing Boundary A in order to avoid "death by a thousand cuts"-like performance leaks.
 
 _Lotus opportunity:_ cryptograhic functions related to signatures, proving systems (PoSt, PoRep) and more are implemented in [rust](https://github.com/filecoin-project/rust-fil-proofs), and invoked through the [Filecoin FFI](https://github.com/filecoin-project/filecoin-ffi).
 
-**Boundary B: FVM (Rust) <> Invocation Container (WASM)**
+**Boundary B: FVM \[domain 2] <> Invocation Container (WASM) \[domain 3]**
 
 This boundary is incurred every time actor code invokes a syscall. The syscall is first handled by the FVM, which in turn may need to traverse Boundary A to resolve it.
 
-Because the WASM <> Rust FFI mechanisms are relatively cheap, the cost of this boundary is lower than that of Boundary A. Therefore, we strive to resolve most of the syscalls within the scope of the FVM for faster performance.
+Because the reference implementation of the FVM is written in Rust, and the WASM <> Rust FFI mechanisms are relatively cheap, the cost of this boundary is lower than Boundary A (in the reference implementation).
 
 *Opportunity rust-fil-proofs.* [rust-fil-proofs](https://github.com/filecoin-project/rust-fil-proofs) implements the Filecoin proofs (PoRep, PoSt) and related cryptographic primitives in Rust, for performance reasons. The library is integrated in Lotus via Cgo in is the implementation of the Filecoin storage proofs implemented in Rust for performance rasons. in  is integrated into non-Rust clients via FFI. 
 
