@@ -317,9 +317,8 @@ The current InitActor (`f00`) will be extended with a (`LoadActor`) method that 
 Logic:
 
 1. Validate the bytecode.
-    - Syntactical validation
-    - Potentially, structural validation.
-    - Potentially, lightweight static code analysis.
+    - Syntactical validation and structural validation, [as per standard](https://webassembly.github.io/spec/core/valid/index.html).
+    - No floating point instructions.
 2. Multihash the bytecode and calculate the code CID.
 3. Check if the code CID is already registered in the `ActorRegistry`.
 4. If yes, charge gas for the above operations and return the existing CID.
