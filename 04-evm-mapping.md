@@ -4,8 +4,6 @@ This document describes the mappings of structures, types, and procedures betwee
 
 ## World state / state tree
 
-World state 
-
 ## Contract memory model
 
 In the EVM, contract memory is volatile and its lifetime is scoped to the execution of a transaction. Contract memory is a simple word-addressed byte array, where the word size is 256 bits (32 bytes). Contract memory is effectively heap, and is technically unlimited but de-facto bounded by gas limits. Conversely, stack is limited to 1024 words (also 256-bit sized).
@@ -42,4 +40,4 @@ However, keep in mind that execution is ultimately controlled by FVM gas and not
 
 ## References
 
-- [Ethereum Yellow Paper](https://ethereum.github.io/yellowpaper/paper.pdf)
+- [Ethereum Yellow Paper (Berlin Version 888949c – 2021-10-15)](https://ethereum.github.io/yellowpaper/paper.pdf)
