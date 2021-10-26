@@ -2,6 +2,22 @@
 
 This document describes the mappings of structures, types, and procedures between the native FVM environment (WASM), and the EVM foreign VM (emulated).
 
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+**Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
+
+- [World state / state tree](#world-state--state-tree)
+- [Contract memory model](#contract-memory-model)
+- [Contract storage model](#contract-storage-model)
+- [Gas accounting and execution halt semantics](#gas-accounting-and-execution-halt-semantics)
+- [Ethereum logs/events](#ethereum-logsevents)
+- [Blockchain timing](#blockchain-timing)
+- [Precompiles](#precompiles)
+- [Cryptographic primitives](#cryptographic-primitives)
+- [References](#references)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
 ## World state / state tree
 
 ## Contract memory model
