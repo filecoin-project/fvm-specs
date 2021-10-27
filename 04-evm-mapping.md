@@ -68,18 +68,56 @@ In conclusion, the maximum address length in Filecoin is 49 bytes or 392 bits (c
 1. The worst case scenario is larger than the width of the Ethereum address type. Even if BLS addresses were prohibited in combination with EVM actors, class 1 and class 2 still miss the limit by 1 byte (due to the prefix).
 2. It exceeds the EVM's 256 bit architecture.
 
-Problem 1 renders Solidity smart contracts instantly incompatible with the Filecoin addressing scheme, as well as EVM opcodes that take or return addresses for arguments, e.g. CALLER, CALL, CALLCODE, DELEGATECALL, COINBASE, etc. This problem is hard to work around, and would require a fork of the EVM to modify existing opcodes for semantic awareness of addresses (although this is really hard to get right), or to introduce a Filecoin-specific opcode family to deal Filecoin addresses (e.g. FCALL, FCALLCODE, etc.) The latter would break as-is deployability of existing smart contracts.
+Problem 1 renders Solidity smart contracts instantly incompatible with the Filecoin addressing scheme, as well as EVM opcodes that take addresses for arguments, e.g. CALL, CALLCODE, DELEGATECALL, etc. This problem is hard to work around, and would require a fork of the EVM to modify existing opcodes for semantic awareness of addresses (although this is really hard to get right), or to introduce a Filecoin-specific opcode family to deal Filecoin addresses (e.g. FCALL, FCALLCODE, etc.) The latter would break as-is deployability of existing smart contracts.
 
 Problem 2 can be workable by spilling over and combining values in the stack, through Filecoin-specific Solidity libraries.
 
-**Solution A: using ID addresses**
+### Proposed solution: reorg-stable ID addresses
 
-However, there's a simpler solution: use Filecoin ID addresses (max. 10 bytes) everywhere inside EVM execution. However, this comes with drawbacks:
+The sizing issues can be overcome by using Filecoin ID addresses (max. 10 bytes)inside EVM execution. This class of addresses fits within the bounds of the Ethereum address width (20 bytes).
 
-1. EVM smart contracts can't send to inexisting, stable account addresses, and rely on account actor auto-creation, as those addressess can't be used with EVM opcodes (see problem 1). Potential solution: have the caller create the account on chain prior to invoking the EVM smart contract.
-2. ID addresses are vulnerable to reorg within the current finality window, so submitting EVM transactions involving actors created recently (900 epochs; 7.5 hours) would be unsafe. Potential solution: have the runtime detect and fail calls involving recently-created actors.
+However, this comes with challenges:
 
-**Solution B: using address handles**
+1. EVM smart contracts would be unable to send FIL to yet-uninitialized, pubkey account addresses (and rely on account actor auto-creation), due to Problem 1.
+    - Potential solution: have the caller create the account on chain prior to invoking the EVM smart contract. This would imply changes to the code of the smart contract.
+2. EVM smart contracts would be unable to send FIL to yet-uninitialized actors, due to Problem 1. This is covered in detail inthe "contract creation" section below, because the limitations are deeper than address type widths.
+3. ID addresses are vulnerable to reorg within the current finality window, so submitting EVM transactions involving actors created recently (900 epochs; 7.5 hours) would be unsafe, as they could be reassigned to different backing actors.
+    - Potential solution A: have the runtime detect and fail calls involving recently-created actors (undesirable).
+    - Potential solution B: introduce a new address class `4`, the asserted ID address. Read below.
+
+**Address class 4: the asserted ID address**
+
+The asserted ID address class decorates the standard ID address (class `0`) with an assertion about the mapping of that address to the underlying stable/pubkey address.
+
+It is valuable in reorg-sensitive scenarios where, for some reason, relying on stable/pubkey addresses is unfeasible.
+
+When dealing with a class `4` address, the code MUST verify that the ID address is effectively bound to the corresponding stable address. Only then will the address be a valid reference; else, the address MUST be rejected.
+
+The format of a class `4` address is as follows:
+
+```
+byte idx    contents
+--------    --------
+[0]         address class (fixed value 0x04)
+[1..9]      payload of class 0 address (uvarint64, worst case scenario; max. uint64 value)
+[10]        length prefix denoting assertion byte count
+[11..11+L]  assertion; L trailing bytes from stable address
+```
+
+The length of the assertion is variable, and is specified by the byte immediately following the address class 0 payload.
+
+For the purposes of this EVM<>FVM mapping, the total length must not exceed 20 bytes; this leaves us with:
+
+- a 9-byte assertion, in the worst case scenario
+- a 16-byte assertion, in the best case scenario (non-system actors begin at ID 1000, which is represented by 2 bytes in uvarint64)
+
+The guarantees to be derived from the assertion are probabilistic, with the operative risk being that an attacker manages to find a 9-byte collision (in the worst case scenario) and pulls of a chain reorg to remap the ID address to the colliding address, all within the current finality window, targeting a specific transaction. The odds of that happening appear to be infinitesimally negligible, but math is needed here.
+
+### Other alternatives considered
+
+> ⚠️  This section is work product preserved for completeness. None of these solutions is sound, and they have been entirely discarded.
+
+**Address handles**
 
 If these tradeoffs are unacceptable, we can consider using _address references/handles_ in the FVM EVM calling convention. Input parameters would be enveloped in a tuple:
 
@@ -98,15 +136,15 @@ However, address-returning opcodes are still unsolved (e.g. CREATE, CREATE2, COI
 
 Finally, this approach alters the calling convention, which in turns breaks compatibility with existing Ethereum tooling like wallets (e.g. MetaMask).
 
-**Solution C: using address guards**
+**Address guards**
 
 Another alternative consists of adopting ID addresses (like proposed in Solution A), but when those addresses are "fresh" (i.e. created within the finality window), allowing to pack a stable address guard/assertion in a data structure similar to that of Solution B.
 
-The EVM <> FVM shim would apply assertions prior to invoking the contract.
+The EVM <> FVM shim would apply assertions prior to invoking the contract, verifying that all ID addresses are bound to their expective stable addresses.
 
-This solution imposes extra complexity on the caller (so as to determine address freshness). It may require extending the InitActor's state object to inline the creation epoch for ease of query.
+This solution imposes extra complexity on the caller, so as to determine address freshness before deciding whether to specify or not gurad. It may require extending the InitActor's state object to inline the creation epoch for ease of query.
 
-This solution also suffers from the ecosystem tooling compatibility drawbacks, just like Solution B.
+This solution also suffers from the ecosystem tooling compatibility drawbacks, just like the prior proposal.
 
 ## Gas accounting and execution halt semantics
 
@@ -118,6 +156,14 @@ This solution also suffers from the ecosystem tooling compatibility drawbacks, j
 
 ## Cryptographic primitives
 
+## Contract creation
+
+- Requirement: support value transfers to uninitialized actors to support counterfactual deployments made possible by the CREATE2 opcode.
+
 ## References
 
 - [Ethereum Yellow Paper (Berlin Version 888949c – 2021-10-15)](https://ethereum.github.io/yellowpaper/paper.pdf)
+- https://github.com/ethereum/EIPs/issues/684
+- [EIP-1014: Skinny CREATE2](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-1014.md). Clarifications section elaborates on collisions. 
+- [EIP-684: Prevent overwriting contracts](https://github.com/ethereum/EIPs/issues/684)
+- [EIP-161: State trie clearing (invariant-preserving alternative)](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-161.md)
