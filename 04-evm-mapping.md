@@ -9,12 +9,15 @@ This document describes the mappings of structures, types, and procedures betwee
 - [World state / state tree](#world-state--state-tree)
 - [Contract memory model](#contract-memory-model)
 - [Contract storage model](#contract-storage-model)
+- [Addressing scheme](#addressing-scheme)
+  - [Proposed solution: universal stable addresses](#proposed-solution-universal-stable-addresses)
 - [Gas accounting and execution halt semantics](#gas-accounting-and-execution-halt-semantics)
 - [Ethereum logs/events](#ethereum-logsevents)
 - [Blockchain timing](#blockchain-timing)
 - [Precompiles](#precompiles)
 - [Cryptographic primitives](#cryptographic-primitives)
 - [References](#references)
+- [Annex A: Addressing solutions considered](#annex-a-addressing-solutions-considered)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
