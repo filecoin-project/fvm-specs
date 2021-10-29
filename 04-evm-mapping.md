@@ -100,7 +100,7 @@ With a high probability, the hash function of class 4 will remain BLAKE2, with a
 3. For FVM native actors, the preimage is sender || nonce || # of actors created during message execution.
 4. For EVM foreign actors, the preimage is inherited from CREATE and CREATE2.
 
-Note that preimages are not user-controlled, but some subcomponents of it could be (e.g. in EVM CREATE2).
+Note that preimages are not user-controlled, but some constituents of them may be (e.g. EVM CREATE2 opcode).
 
 **Resulting address space taxonomy**
 
