@@ -79,13 +79,13 @@ Find the proposed solution next, and a summary of alternatives considered in Ann
 
 ### Proposed solution: universal stable addresses
 
-The idea is to expand address class 2 into a unified fixed-size stable address space all actors, **including account actors**. At present, this class only identifies **non-account actors**. The only address space that covers all actors is the ID class, which is not reorg-stable and thus unsafe.
+The idea is to promote address class 2 into a unified fixed-size stable address space all actors, **including account actors**. At present, this class only identifies **non-account actors**. The only address space that covers all actors is the ID class, which is not reorg-stable and thus unsafe.
 
 The width of this address space is already 20 bytes. EVM actors would only interact with class 2 addresses, with the prefix stripped to honour the 160-bit address expectation, for full EVM bytecode compatibility.
 
 Nevertheless, it has been noted that the security of 20-byte addreses is beginning to be insufficient, with an estimated cost of $10bn to find an arbitrary collision by carrying out 2^80 computations.
 
-Therefore, we propose to introduce a new address class 4 for a 256-bit stable address space. This class would become the **canonical stable address class**, with class 2 addresses (20-byte) mapping over to their class 4 equivalents (32 bytes). Class 2 can thus be thought of as an alias/symlink to class 4, to be used in environments that are unable handle larger widths.
+Therefore, the actual proposal is **to introduce a new address class 4 for a 256-bit stable address space**. This class would become the **canonical stable address class**, with class 2 addresses (20-byte) mapping over to their class 4 equivalents (32 bytes). Class 2 can thus be thought of as an alias/symlink to class 4, to be used in environments that are unable handle larger widths.
 
 The state tree would track class 2 and class 4 address for all actors by maintaining the necessary indices.
 
