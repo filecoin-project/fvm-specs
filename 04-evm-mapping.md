@@ -102,7 +102,7 @@ With a high probability, the hash function of class 4 will remain BLAKE2, with a
 
 Note that preimages are not user-controlled, but some subcomponents of it could be (e.g. in EVM CREATE2).
 
-**Address space taxonomy**
+**Resulting address space taxonomy**
 
 | Class | Desc                              | Actor type | Payload width | Total width | Payload value                                         | Usage                                                                                | Stable? |
 | ----- | --------------------------------- | ---------- | ------------- | ----------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------ | ------- |
