@@ -6,9 +6,11 @@ This document describes the mappings of structures, types, and procedures betwee
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [World state / state tree](#world-state--state-tree)
+- [Integration](#integration)
+  - [State tree](#state-tree)
+  - [Mechanics and interfaces](#mechanics-and-interfaces)
 - [Contract memory model](#contract-memory-model)
-- [Contract storage model](#contract-storage-model)
+- [Account storage model](#account-storage-model)
 - [Addressing scheme](#addressing-scheme)
   - [Proposed solution: universal stable addresses](#proposed-solution-universal-stable-addresses)
 - [Gas accounting and execution halt semantics](#gas-accounting-and-execution-halt-semantics)
@@ -16,18 +18,66 @@ This document describes the mappings of structures, types, and procedures betwee
 - [Blockchain timing](#blockchain-timing)
 - [Precompiles](#precompiles)
 - [Cryptographic primitives](#cryptographic-primitives)
+- [Chain-specific opcodes](#chain-specific-opcodes)
+- [Cross-contract calls](#cross-contract-calls)
 - [References](#references)
 - [Annex A: Addressing solutions considered](#annex-a-addressing-solutions-considered)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
-## World state / state tree
+## Integration
+
+### State tree
+
+There won't be a segregated world state for Ethereum actors in the Filecoin blockchain. We will not use the Patricia Merkle Trie structure. Instead, EVM account state will be folded and docked into the Filecoin state tree.
+
+### Mechanics and interfaces
+
+EVM smart contracts (also known as EVM foreign actors in Filecoin terminology), are represented this way in the Filecoin state tree:
+
+```
+{
+	Code:       cid('fil/<version>/evm/<runtime_version>'),
+	Head:       cid(<actor_state>),
+	Nonce:      uint64(<nonce>),   
+	Balance:    bigint(<fil_balance>),
+}
+```
+
+Notice that EVM foreign actors are typed in the state tree with a CodeCID that does not correspond to their EVM bytecode. Instead, the CodeCID points to the WASM bytecode of the **EVM foreign runtime**.
+
+The EVM init code is passed as a constructor parameter during instantiation, when calling the `Exec` method of the `InitActor`:
+
+```
+{
+    CodeCID: cid('fil/<version>/evm/<runtime_version>'),
+    ConstructorParams: {
+        InitCode: <evm_init_code>
+    }
+}
+```
+
+The constructor of the EVM foreign runtime evaluates the EVM init code, generates the runtime bytecode, and stores it in the actor's state.
+
+When the actor is called, the FVM loads the code of the EVM foreign runtime, which in turn loads the EVM bytecode from the actor state for _interpretation_. In the future, we may consider optimizing for performance through compilation or transpilation. This is arguably improbable, because the EVM runtime exists mainly for ecosystem compatibility, and is not the primary Filecoin actor runtime.
+
+The CodeCID refers to a concrete version of the EVM foreign runtime. This permits evolution, and code upgrade operations as per the the [FVM Architecture document](01-architecture.md) apply.
+
+The EVM actor's state schema is as follows:
+
+```
+{
+    Bytecode:       <evm_runtime_bytecode>,
+    StorageRoot:    <hamt_root_cid (see below)>,
+    LogsRoot:       <vector_root>,
+}
+```
 
 ## Contract memory model
 
 In the EVM, contract memory is volatile and its lifetime is scoped to the execution of a transaction. Contract memory is a simple word-addressed byte array, where the word size is 256 bits (32 bytes). Contract memory is effectively heap, and is technically unlimited but de-facto bounded by gas limits. Conversely, stack is limited to 1024 words (also 256-bit sized).
 
-Memory costs gas; and memory operations pay gas too. The memory cost is determined by a polynomial function over the count of words that cover the address ranges referenced during execution. This price is charged just-in-time as memory is expanded to accommodate address ranges supplied to MLOAD and MSTORE. In addition to those variable JIT costs, the MLOAD and MSTORE opcodes have a fixed "very low" cost (currently 3 gas units).
+Memory costs gas; and memory operations pay gas too. The memory cost is determined by a polynomial function over the count of words that cover the address ranges referenced during execution. This price is charged just-in-time as memory is expanded to accommodate address ranges supplied to `MLOAD` and `MSTORE`. In addition to those variable JIT costs, the `MLOAD` and `MSTORE` opcodes have a fixed "very low" cost (currently 3 gas units).
 
 The current Filecoin VM does not track memory usage. It also doesn't charge for memory usage explicitly. The fundamental heuristic shaping the current gas schedule is wall-clock execution time of specific operations and syscalls. This model is only possible because all logic on-chain is defined ahead of time, and thus can be studied deterministically for resource utilisation.
 
@@ -35,15 +85,17 @@ With the FVM, that invariant will be invalidated, and memory utilisation of user
 
 Note that WASM memory is unmanaged. Modules obtain memory pages from the WASM host (page size is currently fixed to 64KiB). Modules rely on allocators, such as Rust's default allocator, or slimmer options like [wee_alloc](https://github.com/rustwasm/wee_alloc), to manage that memory. It's likely, but not decided, that FVM's memory-specific gas costs will be applied on host memory requests, by intercepting and metering those operations, as those are indicative of actual system resource usage.
 
-Concerning the EVM <> FVM memory model mapping, we find that memory referencing, the instruction set, and memory usage accounting and consequent gas charging, is largely self-contained within the EVM interpreter. Hence these specificities are opaque to the FVM.
+Concerning the EVM <> FVM memory model mapping, memory referencing, the instruction set, and memory usage accounting and consequent gas charging, is largely self-contained within the EVM interpreter. Hence these specificities are opaque to the FVM.
 
 However, keep in mind that execution is ultimately controlled by FVM gas and not EVM gas (see below). Hence, the memory-efficiency of the chosen EVM interpreter ([SputnikVM](https://github.com/rust-blockchain/evm) in the reference FVM) —specifically under a WASM environment— is technically what matters when emulating EVM smart contracts atop the FVM.
 
-**Recommendation:** We may have to invest time and effort to optimise the WASM memory footprint of the EVM interpreter of choice.
+To avoid divergences, the WASM bytecode of the EVM foreign runtime actor must be identical across Filecoin node implementations.
 
-## Contract storage model
+**Recommendation:** We may have to invest time and effort to optimise the WASM memory footprint of the EVM runtime of choice.
 
-## Account model
+## Account storage model
+
+Account storage in Ethereum takes the form of a map `{ uint256: rlp(uint256) }`. This format will be mapped to an IPLD HAMT in the FVM, and stored in the actor's state. We expect no complications, besides those that may arise from gas accounting divergence in storage operations (IPLD vs. Ethereum data model), storage clearing, and cold/warm storage differentiation.
 
 ## Addressing scheme
 
@@ -114,17 +166,56 @@ Note that preimages are not user-controlled, but some constituents of them may b
 
 ## Gas accounting and execution halt semantics
 
+The execution halt is determined by Filecoin gas and not by EVM gas. Therefore, EVM runtime is made to run with unlimited gas. The FVM is responsible for metering execution and halting it when gas limits are exceeded. Refer to the [Gas accounting](01-architecture.md#gas-accounting) section of the Architecture doc for more details.
+
+The exit code of the execution matches the Filecoin value for "out of gas" situations.
+
 ## Ethereum logs/events
+
+TBD.
 
 ## Blockchain timing
 
+Ethereum target block times are ~10 seconds, whereas Filecoin's is ~30 seconds. A priori, this difference has no impact on the protocol or this spec, but it may impact the behaviour of smart contracts ported over from Ethereum that expect 10-second block timing.
+
 ## Precompiles
+
+Precompiles from Ethereum will be honoured.
+
+However, because the full EVM runtime is compiled to WASM, so are the precompiles provided in the source code of the EVM runtime. Therefore, technically speaking, they are not _native precompiles_.
+
+In the future, we may optimise by having them call a Filecoin syscall to escape to native land. This would imply a traversal of Boundary A. See the [Domains and boundaries](01-architecture.md#domains-and-boundaries) section of the architecture doc.
 
 ## Cryptographic primitives
 
+TBD.
+
+## Chain-specific opcodes
+
+The following are some notable chain specific opcodes whose behaviour is translated to the Filecoin environment as specified:
+
+* `BLOCKHASH`: returns the hash of the first block in the specified lookback tipset. 
+* `GASLIMIT`: returns the gas limit as per Filecoin gas system.
+* `CHAINID`: returns a fixed value `0`.
+* `GAS`: returns the gas remaining as per Filecoin gas system. One divergence from Ethereum is the return value does not include the full cost of this operation (because the cost of stack copy and program advance is not known when the value is captured).
+* `COINBASE`: returns the Filecoin class 4 address of the block producer including this message.
+* `NUMBER`: returns the chain epoch where the message gets included. Note that this is one epoch behind the execution epoch (Filecoin defers execution to the next tipset).
+* `DIFFICULTY`: returns fixed value `0`.
+* `CODESIZE`: returns the size of the EVM bytecode.
+
 ## Contract creation
 
-- Requirement: support value transfers to uninitialized actors to support counterfactual deployments made possible by the CREATE2 opcode.
+Both `CREATE` and `CREATE2` are supported. Under the hood, these opcodes will invoke `InitActor#Exec` with the the same `CodeCID` (hence, the same EVM foreign runtime version) as the currently running EVM actor. The returned address is a class `4` address, or 0 if the operation failed (respecting Ethereum's behaviour).
+
+The computed address matches the relevant expectations for the opcode in question. That is, the ability for `CREATE2` to generate addresses suitable for counterfactual creations, or prospective actor interactions, is preserved.
+
+## Cross-contract calls
+
+Both **EVM <> EVM** and **FVM <> EVM** calls are supported.
+
+Solidity code will generate the input parameters conforming to the callee ABI by default, suitable for EVM calls.
+
+For EVM actors to be able to call FVM actors, a Solidity library needs to be written to pack the call's input data in conformance with the appropriate calling convention or call template, as defined by the target actor's IPLD Interface Definition.
 
 ## References
 

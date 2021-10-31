@@ -343,7 +343,7 @@ This is especially important in a sharded blockchain design, where actor code an
 
 ## Gas accounting
 
-Gas accounting will be performed at the bytecode level, leveraging the metering facilites provided by the WASM runtimes under consideration (Wasmer, Wasmtime).
+Gas accounting will be performed at the bytecode level, leveraging the metering facilities provided by the WASM runtimes under consideration (Wasmer, Wasmtime).
 
 ## Actor code updates
 
