@@ -390,6 +390,8 @@ Which gets WASMified as:
 (data (;0;) (i32.const 1048576) "\00\00...")
 ```
 
+In theory, it should be possible for an actor to "import" a global exported by another module. However, there doesn't appear to be a way to get rust to "import" a global in general. Unfortunately, it's not looking like that's going to change: https://github.com/rust-lang/rust/issues/60825.
+
 ## Allocation & Variable Sizes
 
 The EVM and eWASM only needs "variable sized" objects in two cases: call data and return data. To access this, the actor:
