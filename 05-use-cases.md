@@ -9,6 +9,7 @@ Potential use cases for user-generated Filecoin actors in the Filecoin Virtual M
 
 
 - [Multi-generational storage](#multi-generational-storage)
+- [Machine Learning Marketplace](#machine-learning-marketplace)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -24,3 +25,10 @@ With a smart contract, we could lock a FIL balance as a bounty. The bounty is di
 
 raulk (Filecoin Slack): "I would imagine that storage providers would claim portions of the bounty by presenting the sector ID and a merkle proof that traces the commP (deal data) to the commR of the sector. The contract would then call the miner actor to verify that the sector is alive, healthy and is being consistently proven."
 
+## Machine Learning Marketplace
+
+Suggested by Ørjan Røren - Phi-rjan @ Slack
+
+Filecoin is already storing a lot of interesting public, open-access datasets, and are going to continue onboarding datasets like ENCODE, Berkley Self-Driving Data, NLP fast.ai and many more datasets through the Filecoin Discover and Slingshot-programs.
+
+For data scientists these datasets are valuable for creating models, as well as predictions. With smart contracts on Filecoin we unlock verifiable compute, and potentially machine learning / algorithm marketplaces. I envision that we can both see totally transparent models, as well as models that are encrypted, preservering IP for the creators, but open to use for everybody.
