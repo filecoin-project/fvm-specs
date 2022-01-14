@@ -4,7 +4,8 @@ This document specifies the error conditions in the FVM and the associated codes
 
 ## Exit Codes
 
-Exit codes are codes that are returned when an actor exits, and finally appear on-chain.
+Exit codes are numeric int32 codes that are returned when an actor exits both successfully and in error.
+Exit codes appear on-chain inside the message receipt, and therefore form part of consensus.
 
 ### System Exit Codes
 
@@ -38,7 +39,7 @@ Questions:
       error code.
 - [ ] Can we maybe use negative numbers for reserved codes? That would make our APIs nicer.
 
-### Well-known exit codes
+### Standardised actor exit codes
 
 Well-known exit codes are codes returned by actors to indicate common error conditions.
 
