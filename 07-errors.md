@@ -97,6 +97,20 @@ abort (usually with a standard "abnormal exit" code).
 | 9    | `ErrIllegalCodec`      | specified codec is not allowed                         |
 | 10   | `ErrSerialization`     | block format did not match specified codec             |
 
+Changes from pre-FVM Filecoin:
+
+Before the FVM, Filecoin didn't have a concept of syscall error codes, only exit codes. However:
+
+1. Pre-FVM, most syscalls returned string errors with no exit codes attached.
+2. There is no reliable mapping from syscall errors to exit codes. For example:
+
+    1. If a syscall returns with `ErrIllegalArgument`, it means that an illegal argument was passed
+       to the syscall.
+    2. If an actor exits with `ErrIllegalArgument`, it means the message parameters weren't allowed.
+
+    1 does not imply 2. An actor may pass illegal arguments to a syscall due to a bug in the actor,
+    illegal state, etc.
+
 **Notes:**
 
 - We intentionally use `ErrIllegalArgument` instead of `ErrSerialization` in non-IPLD syscalls, even
