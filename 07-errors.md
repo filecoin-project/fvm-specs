@@ -259,7 +259,7 @@ TODO
 |----------------------|---------------------|
 | `ErrIllegalArgument` | if malformed params |
 
-#### `rand::aet_*_randomness`
+#### `rand::get_*_randomness`
 
 | Error                | Reason                  |
 |----------------------|-------------------------|
