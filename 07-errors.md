@@ -37,21 +37,22 @@ to apply. These exit codes will never be observed or returned directly by actors
 Examples:
 
 1. If a message sender doesn't exist on-chain, the VM will return a receipt with the
-   `SysErrSenderInvalid` abnormal exit code.
-2. If an actor calls `vm::abort` with a system abnormal exit code, the send to that actor will fail
-   with the `ErrIllegalActor` _syscall error_. If this is a top-level send (the execution of an
-   on-chain message), the `SysErrIllegalActor` system exit code will be recorded as the messages
-   exit code.
-3. If a message runs out of gas, the VM will return a receipt with the `SysErrOutOfGas` abnormal exit code.
+   `ExitCode::SysErrSenderInvalid` abnormal exit code.
+2. If an actor calls `vm::abort` with a system abnormal exit code, the send to that actor
+   will fail with the `ExitCode::ErrIllegalActor` _syscall error_. If this is a top-level send (the
+   execution of an on-chain message), the `ExitCode::SysErrIllegalActor` system exit code will be
+   recorded as the messages exit code.
+3. If a message runs out of gas, the VM will return a receipt with the `ExitCode::SysErrOutOfGas`
+   abnormal exit code.
 
 Changes from pre-FVM Filecoin:
 
-1. Removed `SysErrInvalidMethod` (3). Dispatch is now handled inside actor code.
-2. Removed `SysErrForbidden` (8). Caller verification is a userspace operation, we'll now return
-   `ErrForbidden`.
-4. Replaced `SysErrIllegalArgument` with `SysErrAssertionFailed` to more accurately reflect its
-   usage. When this appears on-chain, it means that a message hit some internal Filecoin assert that
-   shouldn't happen.
+1. Removed `ExitCode::SysErrInvalidMethod` (3). Dispatch is now handled inside actor code.
+2. Removed `ExitCode::SysErrForbidden` (8). Caller verification is a userspace operation, we'll now
+   exit with `ExitCode::ErrForbidden`.
+4. Replaced `ExitCode::SysErrIllegalArgument` with `ExitCode::SysErrAssertionFailed` to more
+   accurately reflect its usage. When this appears on-chain, it means that a message hit some
+   internal Filecoin assert that shouldn't happen.
 
 ### Standard "Abnormal Exit" Codes
 
@@ -71,31 +72,32 @@ Standard abnormal exit codes are codes returned by actors to indicate common abn
 
 Changes from pre-FVM Filecoin:
 
-1. Added `ErrInvalidMethod` (replacing `SysErrInvalidMethod`).
-2. Added `ErrUnspecified`. This generally means "there's a bug and I have no idea what went wrong".
-   The alternative would be for the actor to _panic_ (leading to an `ErrIllegalActor` syscall
-   error), but it may be useful to distinguish between "crashing" and "something unknown went
-   wrong".
+1. Added `ExitCode::ErrInvalidMethod` (replacing `ExitCode::SysErrInvalidMethod`).
+2. Added `ExitCode::ErrUnspecified`. This generally means "there's a bug and I have no idea what
+   went wrong". The alternative would be for the actor to _panic_ (leading to an
+   `ExitCode::ErrIllegalActor` syscall error), but it may be useful to distinguish between
+   "crashing" and "something unknown went wrong".
 
 ## Syscall Error Numbers
 
-Syscall error numbers are returned by syscalls to actors. Except `Ok` (0), they indicate that the
+Syscall error numbers (`ErrorNumber`) are returned by syscalls to actors. They indicate that the
 syscall failed (without any side effects). The actor may choose to handle the error and continue, or
 abort (usually with a standard "abnormal exit" code).
 
-| Number | Status                 | Description                                            |
-|--------|------------------------|--------------------------------------------------------|
-| 0      | `Ok`                   | syscall succeeded                                      |
-| 1      | `ErrIllegalArgument`   | invalid syscall parameters                             |
-| 2      | `ErrIllegalActor`      | actor is not in the correct state to perform operation |
-| 3      | `ErrLimit`             | some limit was exceeded (e.g. lookback limit)          |
-| 4      | `ErrAssertionFailed`   | some internal assertion failed                         |
-| 5      | `ErrInsufficientFunds` | attempted to send more than balance                    |
-| 6      | `ErrNotFound`          | resource not found                                     |
-| 7      | `ErrInvalidHandle`     | block handle invalid                                   |
-| 8      | `ErrIllegalCid`        | cid creation parameters (hash/length) were invalid     |
-| 9      | `ErrIllegalCodec`      | specified codec is not allowed                         |
-| 10     | `ErrSerialization`     | block format did not match specified codec             |
+A return value of "0" means that the syscall succeeded.
+
+| Number | Name                | Description                                            |
+|--------|---------------------|--------------------------------------------------------|
+| 1      | `IllegalArgument`   | invalid syscall parameters                             |
+| 2      | `IllegalActor`      | actor is not in the correct state to perform operation |
+| 3      | `LimitExceeded`     | some limit was exceeded (e.g. lookback limit)          |
+| 4      | `AssertionFailed`   | some internal assertion failed                         |
+| 5      | `InsufficientFunds` | attempted to send more than balance                    |
+| 6      | `NotFound`          | resource not found                                     |
+| 7      | `InvalidHandle`     | block handle invalid                                   |
+| 8      | `IllegalCid`        | cid creation parameters (hash/length) were invalid     |
+| 9      | `IllegalCodec`      | specified codec is not allowed                         |
+| 10     | `Serialization`     | block format did not match specified codec             |
 
 Changes from pre-FVM Filecoin:
 
@@ -104,28 +106,29 @@ Before the FVM, Filecoin didn't have a concept of syscall error numbers, only ex
 1. Pre-FVM, most syscalls returned string errors with no exit codes attached.
 2. There is no reliable mapping from syscall errors to exit codes. For example:
 
-    1. If a syscall returns with `ErrIllegalArgument`, it means that an illegal argument was passed
+    1. If a syscall returns with `ErrorNumber::IllegalArgument`, it means that an illegal argument was passed
        to the syscall.
-    2. If an actor exits with `ErrIllegalArgument`, it means the message parameters weren't allowed.
+    2. If an actor exits with `ExitCode::ErrIllegalArgument`, it means the message parameters weren't allowed.
 
     1 does not imply 2. An actor may pass illegal arguments to a syscall due to a bug in the actor,
     illegal state, etc.
 
 **Notes:**
 
-- We intentionally use `ErrIllegalArgument` instead of `ErrSerialization` in non-IPLD syscalls, even
-    if we're using CBOR.
-- There is no `ErrForbidden` syscall error number:
-    - Calling a forbidden actor will result in an `ErrForbidden` exit code from that actor.
+- We intentionally use `ErrorNumber::IllegalArgument` instead of `ErrorNumber::Serialization` in
+    non-IPLD syscalls, even if we're using CBOR.
+- There is no `ErrorNumber::Forbidden` syscall error number:
+    - Calling a forbidden actor will result in an `ErrorNumber::Forbidden` exit code from that
+      actor.
     - Calling a forbidden syscall is statically impossible as it will be impossible to _import_ said
         syscalls. I.e., actor deployment will fail.
-- `ErrAssertionFailed` is a special error that indicates that some internal assertion failed and
-    that there is likely something wrong with a system actor or the Filecoin state-tree itself. It
-    exists to allow the network to continue in the face of bugs where the network continuing is likely
-    less harmful than the bug itself.
+- `ErrorNumber::AssertionFailed` is a special error that indicates that some internal assertion
+    failed and that there is likely something wrong with a system actor or the Filecoin state-tree
+    itself. It exists to allow the network to continue in the face of bugs where the network
+    continuing is likely less harmful than the bug itself.
 
-    It can't be caught by normal actors (and turns into a `SysErrAssertionFailed` abnormal exit
-    code on-chain), but may be caught by some system actors (e.g., cron).
+    It can't be caught by normal actors (and turns into a `ExitCode::SysErrAssertionFailed` abnormal
+    exit code on-chain), but may be caught by some system actors (e.g., cron).
 
     Uses:
 
@@ -136,62 +139,62 @@ Before the FVM, Filecoin didn't have a concept of syscall error numbers, only ex
 
 #### `ipld::open`
 
-| Error                | Reason                                            |
-|----------------------|---------------------------------------------------|
-| `ErrNotFound`        | when the target block isn't in the reachable set. |
-| `ErrIllegalArgument` | if there's something wrong with the CID.          |
+| Error             | Reason                                            |
+|-------------------|---------------------------------------------------|
+| `NotFound`        | when the target block isn't in the reachable set. |
+| `IllegalArgument` | if there's something wrong with the CID.          |
 
 #### `ipld::create`
 
-| Error                | Reason                                              |
-|----------------------|-----------------------------------------------------|
-| `ErrLimit`           | if the block is too big.                            |
-| `ErrIllegalCodec`    | if the passed codec isn't allowed.                  |
-| `ErrSerialization`   | if the passed block doesn't match the passed codec. |
-| `ErrIllegalArgument` | if the block isn't in memory, etc.                  |
+| Error             | Reason                                              |
+|-------------------|-----------------------------------------------------|
+| `LimitExceeded`   | if the block is too big.                            |
+| `IllegalCodec`    | if the passed codec isn't allowed.                  |
+| `Serialization`   | if the passed block doesn't match the passed codec. |
+| `IllegalArgument` | if the block isn't in memory, etc.                  |
 
 #### `ipld::read`
 
-| Error                | Reason                                            |
-|----------------------|---------------------------------------------------|
-| `ErrInvalidHandle`   | if the handle isn't known.                        |
-| `ErrIllegalArgument` | if the passed buffer isn't valid, in memory, etc. |
+| Error             | Reason                                            |
+|-------------------|---------------------------------------------------|
+| `InvalidHandle`   | if the handle isn't known.                        |
+| `IllegalArgument` | if the passed buffer isn't valid, in memory, etc. |
 
 #### `ipld::stat`
 
-| Error              | Reason                     |
-|--------------------|----------------------------|
-| `ErrInvalidHandle` | if the handle isn't known. |
+| Error           | Reason                     |
+|-----------------|----------------------------|
+| `InvalidHandle` | if the handle isn't known. |
 
 #### `ipld::cid`
 
-| Error                | Reason                                            |
-|----------------------|---------------------------------------------------|
-| `ErrInvalidHandle`   | if the handle isn't known.                        |
-| `ErrIllegalCid`      | hash code and/or hash length aren't allowed.      |
-| `ErrIllegalArgument` | if the passed buffer isn't valid, in memory, etc. |
+| Error             | Reason                                            |
+|-------------------|---------------------------------------------------|
+| `InvalidHandle`   | if the handle isn't known.                        |
+| `IllegalCid`      | hash code and/or hash length aren't allowed.      |
+| `IllegalArgument` | if the passed buffer isn't valid, in memory, etc. |
 
 #### `self::root`
 
-| Error                | Reason                                              |
-|----------------------|-----------------------------------------------------|
-| `ErrIllegalActor`    | actor hasn't set the root yet, or has been deleted. |
-| `ErrIllegalArgument` | if the passed buffer isn't valid, in memory, etc.   |
+| Error             | Reason                                              |
+|-------------------|-----------------------------------------------------|
+| `IllegalActor`    | actor hasn't set the root yet, or has been deleted. |
+| `IllegalArgument` | if the passed buffer isn't valid, in memory, etc.   |
 
 #### `self::set_root`
 
-| Error              | Reason                                          |
-|--------------------|-------------------------------------------------|
-| `ErrIllegalActor`  | actor has been deleted                          |
-| `ErrInvalidHandle` | specified root CID is not in the reachable set. |
+| Error           | Reason                                          |
+|-----------------|-------------------------------------------------|
+| `IllegalActor`  | actor has been deleted                          |
+| `InvalidHandle` | specified root CID is not in the reachable set. |
 
 #### `self::self_destruct`
 
-| Error | Reason |
-|----
-| `ErrNotFound` | beneficiary isn't found |
-| `ErrIllegalActor` | beneficiary is self |
-| `ErrIllegalArgument` | if the passed address buffer isn't valid, in memory, etc. |
+| Error             | Reason                                                    |
+|-------------------|-----------------------------------------------------------|
+| `NotFound`        | beneficiary isn't found                                   |
+| `IllegalActor`    | beneficiary is self                                       |
+| `IllegalArgument` | if the passed address buffer isn't valid, in memory, etc. |
 
 #### `message::*`
 
@@ -203,17 +206,17 @@ Cannot fail.
 
 #### `actor::resolve_address`
 
-| Error                | Reason                                                    |
-|----------------------|-----------------------------------------------------------|
-| `ErrNotFound`        | target actor doesn't exist                                |
-| `ErrIllegalArgument` | if the passed address buffer isn't valid, in memory, etc. |
+| Error             | Reason                                                    |
+|-------------------|-----------------------------------------------------------|
+| `NotFound`        | target actor doesn't exist                                |
+| `IllegalArgument` | if the passed address buffer isn't valid, in memory, etc. |
 
 #### `actor::get_actor_code_cid`
 
-| Error                | Reason                                                    |
-|----------------------|-----------------------------------------------------------|
-| `ErrNotFound`        | target actor doesn't exist                                |
-| `ErrIllegalArgument` | if the passed address buffer isn't valid, in memory, etc. |
+| Error             | Reason                                                    |
+|-------------------|-----------------------------------------------------------|
+| `NotFound`        | target actor doesn't exist                                |
+| `IllegalArgument` | if the passed address buffer isn't valid, in memory, etc. |
 
 #### `actor::new_actor_address`
 
@@ -225,74 +228,74 @@ TODO
 
 #### `crypto::verify_signature`
 
-| Error                | Reason                                                |
-|----------------------|-------------------------------------------------------|
-| `ErrIllegalArgument` | signature, address, or plaintext buffers are invalid. |
+| Error             | Reason                                                |
+|-------------------|-------------------------------------------------------|
+| `IllegalArgument` | signature, address, or plaintext buffers are invalid. |
 
 #### `crypto::hash_blake2b`
 
-| Error                | Reason         |
-|----------------------|----------------|
-| `ErrIllegalArgument` | invalid buffer |
+| Error             | Reason         |
+|-------------------|----------------|
+| `IllegalArgument` | invalid buffer |
 
 #### `crypto::verify_seal`
 
-| Error                | Reason   |
-|----------------------|----------|
-| `ErrIllegalArgument` | anything |
+| Error             | Reason   |
+|-------------------|----------|
+| `IllegalArgument` | anything |
 
 #### `crypto::verify_post`
 
-| Error                | Reason   |
-|----------------------|----------|
-| `ErrIllegalArgument` | anything |
+| Error             | Reason   |
+|-------------------|----------|
+| `IllegalArgument` | anything |
 
 #### `crypto::compute_unsealed_sector_cid`
 
-| Error                | Reason          |
-|----------------------|-----------------|
-| `ErrIllegalArgument` | everything else |
+| Error             | Reason          |
+|-------------------|-----------------|
+| `IllegalArgument` | everything else |
 
 #### `crypto::verify_consensus_fault`
 
-| Error                | Reason                                 |
-|----------------------|----------------------------------------|
-| `ErrLimit`           | exceeded lookback limit finding block. |
-| `ErrIllegalArgument` | something else                         |
+| Error             | Reason                                 |
+|-------------------|----------------------------------------|
+| `LimitExceeded`   | exceeded lookback limit finding block. |
+| `IllegalArgument` | something else                         |
 
 #### `crypto::verify_aggregate_seals`
 
-| Error                | Reason                          |
-|----------------------|---------------------------------|
-| `ErrLimit`           | exceeds seal aggregation limit. |
-| `ErrIllegalArgument` | something is malformed          |
+| Error             | Reason                          |
+|-------------------|---------------------------------|
+| `LimitExceeded`   | exceeds seal aggregation limit. |
+| `IllegalArgument` | something is malformed          |
 
 #### `crypto::batch_verify_seals`
 
-| Error                | Reason              |
-|----------------------|---------------------|
-| `ErrIllegalArgument` | if malformed params |
+| Error             | Reason              |
+|-------------------|---------------------|
+| `IllegalArgument` | if malformed params |
 
 #### `rand::get_*_randomness`
 
-| Error                | Reason                  |
-|----------------------|-------------------------|
-| `ErrLimit`           | lookback exceeds limit. |
-| `ErrIllegalArgument` | invalid buffer, etc.    |
+| Error             | Reason                  |
+|-------------------|-------------------------|
+| `LimitExceeded`   | lookback exceeds limit. |
+| `IllegalArgument` | invalid buffer, etc.    |
 
 #### `gas::charge_gas`
 
-| Error                | Reason               |
-|----------------------|----------------------|
-| `ErrIllegalArgument` | invalid name buffer. |
+| Error             | Reason               |
+|-------------------|----------------------|
+| `IllegalArgument` | invalid name buffer. |
 
 #### `send::send`
 
-| Error                  | Reason                                               |
-|------------------------|------------------------------------------------------|
-| `ErrNotFound`          | target actor does not exist and cannot be created.   |
-| `ErrInsufficientFunds` | tried to send more FIL than available.               |
-| `ErrInvalidHandle`     | parameters block not found.                          |
-| `ErrLimit`             | recursion limit reached.                             |
-| `ErrIllegalActor`      | called actor panicked or returned an invalid result. |
-| `ErrIllegalArgument`   | invalid recipient address buffer.                    |
+| Error               | Reason                                               |
+|---------------------|------------------------------------------------------|
+| `NotFound`          | target actor does not exist and cannot be created.   |
+| `InsufficientFunds` | tried to send more FIL than available.               |
+| `InvalidHandle`     | parameters block not found.                          |
+| `LimitExceeded`     | recursion limit reached.                             |
+| `IllegalActor`      | called actor panicked or returned an invalid result. |
+| `IllegalArgument`   | invalid recipient address buffer.                    |
