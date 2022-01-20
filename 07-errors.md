@@ -1,6 +1,6 @@
 # Error Conditions
 
-This document specifies the error conditions in the FVM and the associated codes.
+This document specifies the error conditions in the FVM and the associated error codes/numbers.
 
 ## Exit Codes
 
@@ -77,29 +77,29 @@ Changes from pre-FVM Filecoin:
    error), but it may be useful to distinguish between "crashing" and "something unknown went
    wrong".
 
-## Syscall Errors
+## Syscall Error Numbers
 
-Syscall error codes are returned by syscalls to actors. Except `Ok` (0), they indicate that the
+Syscall error numbers are returned by syscalls to actors. Except `Ok` (0), they indicate that the
 syscall failed (without any side effects). The actor may choose to handle the error and continue, or
 abort (usually with a standard "abnormal exit" code).
 
-| Code | Status                 | Description                                            |
-|------|------------------------|--------------------------------------------------------|
-| 0    | `Ok`                   | syscall succeeded                                      |
-| 1    | `ErrIllegalArgument`   | invalid syscall parameters                             |
-| 2    | `ErrIllegalActor`      | actor is not in the correct state to perform operation |
-| 3    | `ErrLimit`             | some limit was exceeded (e.g. lookback limit)          |
-| 4    | `ErrAssertionFailed`   | some internal assertion failed                         |
-| 5    | `ErrInsufficientFunds` | attempted to send more than balance                    |
-| 6    | `ErrNotFound`          | resource not found                                     |
-| 7    | `ErrInvalidHandle`     | block handle invalid                                   |
-| 8    | `ErrIllegalCid`        | cid creation parameters (hash/length) were invalid     |
-| 9    | `ErrIllegalCodec`      | specified codec is not allowed                         |
-| 10   | `ErrSerialization`     | block format did not match specified codec             |
+| Number | Status                 | Description                                            |
+|--------|------------------------|--------------------------------------------------------|
+| 0      | `Ok`                   | syscall succeeded                                      |
+| 1      | `ErrIllegalArgument`   | invalid syscall parameters                             |
+| 2      | `ErrIllegalActor`      | actor is not in the correct state to perform operation |
+| 3      | `ErrLimit`             | some limit was exceeded (e.g. lookback limit)          |
+| 4      | `ErrAssertionFailed`   | some internal assertion failed                         |
+| 5      | `ErrInsufficientFunds` | attempted to send more than balance                    |
+| 6      | `ErrNotFound`          | resource not found                                     |
+| 7      | `ErrInvalidHandle`     | block handle invalid                                   |
+| 8      | `ErrIllegalCid`        | cid creation parameters (hash/length) were invalid     |
+| 9      | `ErrIllegalCodec`      | specified codec is not allowed                         |
+| 10     | `ErrSerialization`     | block format did not match specified codec             |
 
 Changes from pre-FVM Filecoin:
 
-Before the FVM, Filecoin didn't have a concept of syscall error codes, only exit codes. However:
+Before the FVM, Filecoin didn't have a concept of syscall error numbers, only exit codes. However:
 
 1. Pre-FVM, most syscalls returned string errors with no exit codes attached.
 2. There is no reliable mapping from syscall errors to exit codes. For example:
@@ -115,7 +115,7 @@ Before the FVM, Filecoin didn't have a concept of syscall error codes, only exit
 
 - We intentionally use `ErrIllegalArgument` instead of `ErrSerialization` in non-IPLD syscalls, even
     if we're using CBOR.
-- There is no `ErrForbidden` syscall error code:
+- There is no `ErrForbidden` syscall error number:
     - Calling a forbidden actor will result in an `ErrForbidden` exit code from that actor.
     - Calling a forbidden syscall is statically impossible as it will be impossible to _import_ said
         syscalls. I.e., actor deployment will fail.
@@ -132,7 +132,7 @@ Before the FVM, Filecoin didn't have a concept of syscall error codes, only exit
     - `actor::create_actor` fails because the init actor is in a bad state.
     - `actor::resolve_address` fails because the init actor is in a bad state.
 
-### Error Codes By Syscall
+### Error Numbers By Syscall
 
 #### `ipld::open`
 
