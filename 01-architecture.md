@@ -43,7 +43,7 @@ The FVM aims to (a) support a multitude of programming models for actors and (b)
 
 The architecture is largerly inspired by [VM hypervisors](https://en.wikipedia.org/wiki/Hypervisor) and the [actor model](https://en.wikipedia.org/wiki/Actor_model), amongst others paradigms.
 
-## Actors
+## Actors
 
 The term _Actor_ is a reference to the [actor model](https://en.wikipedia.org/wiki/Actor_model), a concurrent computation paradigm that inspires Filecoin's runtime and scalability primitives.
 
