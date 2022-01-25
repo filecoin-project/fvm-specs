@@ -77,13 +77,13 @@ Standard non-zero exit codes are codes returned by actors to indicate common fai
 | 19    | `ErrInsufficientFunds` | insufficient funds for operation                    |
 | 20    | `ErrIllegalState`      | the actor is in an illegal state                    |
 | 21    | `ErrSerialization`     | actor failed to serialize or deserialize some state |
-| 22    | `ErrInvalidMethod`     | specified method does not exist                     |
+| 22    | `ErrUnhandledMessage`  | actor cannot handle this message                    |
 | 23    | `ErrUnspecified`       | the actor failed with an unspecified error          |
 | 24-31 | reserved               |                                                     |
 
 Changes from pre-FVM Filecoin:
 
-1. Added `ExitCode::ErrInvalidMethod` (replacing `ExitCode::SysErrInvalidMethod`).
+1. Added `ExitCode::ErrUnhnadledMessage` (replacing `ExitCode::SysErrInvalidMethod`).
 2. Added `ExitCode::ErrUnspecified`. This generally means "there's a bug and I have no idea what
    went wrong". The alternative would be for the actor to _panic_ (leading to an
    `ExitCode::ErrIllegalInstruction` syscall error), but it may be useful to distinguish between
