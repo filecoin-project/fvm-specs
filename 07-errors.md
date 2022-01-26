@@ -94,7 +94,7 @@ Changes from pre-FVM Filecoin:
 
 Syscall error numbers (`ErrorNumber`) are returned by syscalls to actors. They indicate that the
 syscall failed (without any side effects). The actor may choose to handle the error and continue, or
-abort (usually with one of the
+abort (usually with one of the standard non-zero exit codes).
 
 A return value of "0" means that the syscall succeeded.
 
