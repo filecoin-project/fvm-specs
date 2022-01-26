@@ -299,9 +299,9 @@ TODO
 
 #### `send::send`
 
-A syscall error in send means the _caller_ did something wrong. if the _callee_ panics, exceeds some
-limit, aborts, aborts with an invalid code, etc., that will be reflected in the exit code, not the
-error number.
+A syscall error in send means the _caller_ did something wrong. If the _callee_ panics, exceeds some
+limit, aborts, aborts with an invalid code, etc., the syscall will _succeed_ and the failure will be
+reflected in the exit code contained in the syscall's return value.
 
 | Error               | Reason                                               |
 |---------------------|------------------------------------------------------|
