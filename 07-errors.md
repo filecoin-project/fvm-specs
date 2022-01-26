@@ -58,10 +58,11 @@ Notes:
 
 Changes from pre-FVM Filecoin:
 
-1. Removed `ExitCode::SysErrInvalidMethod` (3). Dispatch is now handled inside actor code.
+1. Removed `ExitCode::SysErrInvalidMethod` (3). Dispatch is now handled inside actor code which
+   should exit with the equivalent `ExitCode::ErrUnhandledMessage`.
 2. Removed `ExitCode::SysErrForbidden` (8). Caller verification is a userspace operation, we'll now
    exit with `ExitCode::ErrForbidden`.
-4. Replaced `ExitCode::SysErrIllegalArgument` with `ExitCode::SysErrAssertionFailed` to more
+3. Replaced `ExitCode::SysErrIllegalArgument` with `ExitCode::SysErrAssertionFailed` to more
    accurately reflect its usage. When this appears on-chain, it means that a message hit some
    internal Filecoin assert that shouldn't happen.
 
