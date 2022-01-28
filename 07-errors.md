@@ -35,7 +35,8 @@ to apply. Actors may not call `vm::abort` with any system exit code.
 | 8     | reserved                   |                                                            |
 | 9     | `SysErrIllegalExitCode`    | message receiver aborted with an system exit code          |
 | 10    | `SysErrAssertionFailed`    | some internal assertion failed                             |
-| 11-15 | reserved                   |                                                            |
+| 11    | `SysErrMissingReturn`      | the actor returned a block handle that doesn't exist       |
+| 13-15 | reserved                   |                                                            |
 
 Notes:
 
@@ -50,7 +51,8 @@ Notes:
 5. Most of these exit codes are only reflected on-chain and will not be observed in internal sends.
    The exceptions are:
     - `SysErrIllegalExitCode` if the called actor aborted with a system exit code.
-    - `SysErrIllegalInstruction` if the called actor paniced.
+    - `SysErrIllegalInstruction` if the called actor panicked.
+    - `SysErrMissingReturn` if the actor returns an invalid block handle.
 
 Changes from pre-FVM Filecoin:
 
