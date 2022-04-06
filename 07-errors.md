@@ -44,14 +44,17 @@ Notes:
    `ExitCode::SysErrSenderInvalid` exit code.
 2. If an actor calls `vm::abort` with a system exit code, that exit code will be replaced with
    `ExitCode::SysErrIllegalExitCode`.
-3. If an actor panics/crashes/etc., the exit code `ExitCode::SysErrIllegalInstruction` will be
-   returned.
+3. If an actor [traps][trap] (often a memory violation), the exit code
+   `ExitCode::SysErrIllegalInstruction` will be returned. User-level assertions (e.g., a go/rust
+   panic, an uncaught exception, etc.) should cleanly abort with `ExitCode::ErrAssertionFailed`.
+   `ExitCode::SysErrIllegalInstruction` means that the actor failed in a way that it couldn't (or
+   didn't) handle itself.
 4. If a message runs out of gas, the VM will return a receipt with the `ExitCode::SysErrOutOfGas`
    exit code.
 5. Most of these exit codes are only reflected on-chain and will not be observed in internal sends.
    The exceptions are:
     - `SysErrIllegalExitCode` if the called actor aborted with a system exit code.
-    - `SysErrIllegalInstruction` if the called actor panicked.
+    - `SysErrIllegalInstruction` if the called actor crashed.
     - `SysErrMissingReturn` if the actor returns an invalid block handle.
 
 Changes from pre-FVM Filecoin:
@@ -78,15 +81,17 @@ Standard non-zero exit codes are codes returned by actors to indicate common fai
 | 21    | `ErrSerialization`     | actor failed to serialize or deserialize some state |
 | 22    | `ErrUnhandledMessage`  | actor cannot handle this message                    |
 | 23    | `ErrUnspecified`       | the actor failed with an unspecified error          |
-| 24-31 | reserved               |                                                     |
+| 24    | `ErrAssertionFailed`   | the actor failed some user-level assertion          |
+| 25-31 | reserved               |                                                     |
 
 Changes from pre-FVM Filecoin:
 
-1. Added `ExitCode::ErrUnhnadledMessage` (replacing `ExitCode::SysErrInvalidMethod`).
-2. Added `ExitCode::ErrUnspecified`. This generally means "there's a bug and I have no idea what
-   went wrong". The alternative would be for the actor to _panic_ (leading to an
-   `ExitCode::ErrIllegalInstruction` syscall error), but it may be useful to distinguish between
-   "crashing" and "something unknown went wrong".
+1. Added `ExitCode::ErrUnhandledMessage` (replacing `ExitCode::SysErrInvalidMethod`).
+2. Added `ExitCode::ErrUnspecified`. This indicates that something unspecified went wrong, but we
+   don't know what the cause is. This is a sane default exit code when accurately determining the
+   underlying error is expensive, unreliable, complex, etc.
+3. Added `ExitCode::ErrAssertionFailed`. This means that the actor failed some user-level assertion
+   (e.g., the actor paniced, threw an uncaught exception, etc.).
 
 ## Syscall Error Numbers
 
@@ -308,3 +313,5 @@ reflected in the exit code contained in the syscall's return value.
 | `InvalidHandle`     | parameters block not found.                          |
 | `LimitExceeded`     | recursion limit reached.                             |
 | `IllegalArgument`   | invalid recipient address buffer.                    |
+
+[trap]: https://webassembly.github.io/spec/core/intro/overview.html#trap
