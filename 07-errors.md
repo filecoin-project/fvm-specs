@@ -164,12 +164,13 @@ Before the FVM, Filecoin didn't have a concept of syscall error numbers, only ex
 
 #### `ipld::create`
 
-| Error             | Reason                                              |
-|-------------------|-----------------------------------------------------|
-| `LimitExceeded`   | if the block is too big.                            |
-| `IllegalCodec`    | if the passed codec isn't supported.                |
-| `Serialization`   | if the passed block doesn't match the passed codec. |
-| `IllegalArgument` | if the block isn't in memory, etc.                  |
+| Error             | Reason                                                  |
+|-------------------|---------------------------------------------------------|
+| `LimitExceeded`   | if the block is too big.                                |
+| `NotFound`        | one of the blocks's children isn't in the reachable set |
+| `IllegalCodec`    | if the passed codec isn't supported.                    |
+| `Serialization`   | if the passed block doesn't match the passed codec.     |
+| `IllegalArgument` | if the block isn't in memory, etc.                      |
 
 #### `ipld::read`
 
@@ -204,7 +205,7 @@ Before the FVM, Filecoin didn't have a concept of syscall error numbers, only ex
 | Error              | Reason                                          |
 |--------------------|-------------------------------------------------|
 | `IllegalOperation` | actor has been deleted                          |
-| `InvalidHandle`    | specified root CID is not in the reachable set. |
+| `NotFound`         | specified root CID is not in the reachable set. |
 
 #### `self::self_destruct`
 
