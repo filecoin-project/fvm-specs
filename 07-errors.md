@@ -2,11 +2,20 @@
 
 This document specifies the error conditions in the FVM and the associated error codes/numbers.
 
+**Conventions:**
+
+Names in this document match those used in the [reference FVM implementation](https://github.com/filecoin-project/ref-fvm):
+
+- `UPPER_SNAKE_CASE` names are exit codes.
+    - The `SYS_` prefix namespaces "system" exit codes.
+    - The `USR_` prefix namespaces "user" (or "standard") exit codes.
+- `CamelCase` names are error numbers.
+
 ## Exit Codes
 
 Exit codes are numeric, 32bit integer codes that signal the outcome of the execution.
 
-A 0 exit code (`Ok`) is an _implied_ exit code: it is generated when the actor returns normally. This is the only exit code that can carry a return _value_ (an arbitrary IPLD object).
+A 0 exit code (`OK`) is an _implied_ exit code: it is generated when the actor returns normally. This is the only exit code that can carry a return _value_ (an arbitrary IPLD object).
 
 Non-zero exit code are either:
 
@@ -25,73 +34,71 @@ to apply. Actors may not call `vm::abort` with any system exit code.
 
 | Code  | Status                     | Description                                                |
 |-------|----------------------------|------------------------------------------------------------|
-| 1     | `SysErrSenderInvalid`      | sender doesn't exist                                       |
-| 2     | `SysErrSenderStateInvalid` | message sender is not in a valid state to send the message |
+| 1     | `SYS_SENDER_INVALID`       | sender doesn't exist                                       |
+| 2     | `SYS_SENDER_STATE_INVALID` | message sender is not in a valid state to send the message |
 | 3     | reserved                   |                                                            |
-| 4     | `SysErrIllegalInstruction` | message receiver trapped                                   |
-| 5     | `SysErrInvalidReceiver`    | receiver doesn't exist and can't be automatically created  |
-| 6     | `SysErrInsufficientFunds`  | sender didn't have the requisite funds                     |
-| 7     | `SysErrOutOfGas`           | out of gas                                                 |
+| 4     | `SYS_ILLEGAL_INSTRUCTION`  | message receiver trapped                                   |
+| 5     | `SYS_INVALID_RECEIVER`     | receiver doesn't exist and can't be automatically created  |
+| 6     | `SYS_INSUFFICIENT_FUNDS`   | sender didn't have the requisite funds                     |
+| 7     | `SYS_OUT_OF_GAS`           | out of gas                                                 |
 | 8     | reserved                   |                                                            |
-| 9     | `SysErrIllegalExitCode`    | message receiver aborted with an system exit code          |
-| 10    | `SysErrAssertionFailed`    | some internal assertion failed                             |
-| 11    | `SysErrMissingReturn`      | the actor returned a block handle that doesn't exist       |
+| 9     | `SYS_ILLEGAL_EXIT_CODE`    | message receiver aborted with an system exit code          |
+| 10    | `SYS_ASSERTION_FAILED`     | some internal assertion failed                             |
+| 11    | `SYS_MISSING_RETURN`       | the actor returned a block handle that doesn't exist       |
 | 13-15 | reserved                   |                                                            |
 
 Notes:
 
 1. If a message sender doesn't exist on-chain, the VM will return a receipt with the
-   `ExitCode::SysErrSenderInvalid` exit code.
+   `SYS_SENDER_INVALID` exit code.
 2. If an actor calls `vm::abort` with a system exit code, that exit code will be replaced with
-   `ExitCode::SysErrIllegalExitCode`.
-3. If an actor [traps][trap] (often a memory violation), the exit code
-   `ExitCode::SysErrIllegalInstruction` will be returned. User-level assertions (e.g., a go/rust
-   panic, an uncaught exception, etc.) should cleanly abort with `ExitCode::ErrAssertionFailed`.
-   `ExitCode::SysErrIllegalInstruction` means that the actor failed in a way that it couldn't (or
-   didn't) handle itself.
-4. If a message runs out of gas, the VM will return a receipt with the `ExitCode::SysErrOutOfGas`
-   exit code.
+   `SYS_ILLEGAL_EXIT_CODE`.
+3. If an actor [traps][trap] (often a memory violation), the exit code `SYS_ILLEGAL_INSTRUCTION`
+   will be returned. User-level assertions (e.g., a go/rust panic, an uncaught exception, etc.)
+   should cleanly abort with `USR_ASSERTION_FAILED`. `SYS_ILLEGAL_INSTRUCTION` means that the actor
+   failed in a way that it couldn't (or didn't) handle itself.
+4. If a message runs out of gas, the VM will return a receipt with the `SYS_OUT_OF_GAS` exit code.
 5. Most of these exit codes are only reflected on-chain and will not be observed in internal sends.
    The exceptions are:
-    - `SysErrIllegalExitCode` if the called actor aborted with a system exit code.
-    - `SysErrIllegalInstruction` if the called actor crashed.
-    - `SysErrMissingReturn` if the actor returns an invalid block handle.
+    - `SYS_ILLEGAL_EXIT_CODE` if the called actor aborted with a system exit code.
+    - `SYS_ILLEGAL_INSTRUCTION` if the called actor crashed.
+    - `SYS_MISSING_RETURN` if the actor returns an invalid block handle.
 
 Changes from pre-FVM Filecoin:
 
-1. Removed `ExitCode::SysErrInvalidMethod` (3). Dispatch is now handled inside actor code which
-   should exit with the equivalent `ExitCode::ErrUnhandledMessage`.
-2. Removed `ExitCode::SysErrForbidden` (8). Caller verification is a userspace operation, we'll now
-   exit with `ExitCode::ErrForbidden`.
-3. Replaced `ExitCode::SysErrIllegalArgument` with `ExitCode::SysErrAssertionFailed` to more
-   accurately reflect its usage. When this appears on-chain, it means that a message hit some
-   internal Filecoin assert that shouldn't happen.
+1. Removed `SYS_INVALID_METHOD` (3). Dispatch is now handled inside actor code which should exit
+   with the equivalent `USR_UNHANDLED_MESSAGE`.
+2. Removed `SYS_FORBIDDEN` (8). Caller verification is a userspace operation, we'll now exit with
+   `USR_FORBIDDEN`.
+3. Replaced `SYS_ILLEGAL_ARGUMENT` with `SYS_ASSERTION_FAILED` to more accurately reflect its usage.
+   When this appears on-chain, it means that a message hit some internal Filecoin assert that
+   shouldn't happen.
 
 ### Standard Non-Zero Exit  Codes
 
 Standard non-zero exit codes are codes returned by actors to indicate common failure conditions.
 
-| Code  | Status                 | Description                                         |
-|-------|------------------------|-----------------------------------------------------|
-| 16    | `ErrIllegalArgument`   | invalid message parameters                          |
-| 17    | `ErrNotFound`          | message referenced something that doesn't exist     |
-| 18    | `ErrForbidden`         | operation forbidden                                 |
-| 19    | `ErrInsufficientFunds` | insufficient funds for operation                    |
-| 20    | `ErrIllegalState`      | the actor is in an illegal state                    |
-| 21    | `ErrSerialization`     | actor failed to serialize or deserialize some state |
-| 22    | `ErrUnhandledMessage`  | actor cannot handle this message                    |
-| 23    | `ErrUnspecified`       | the actor failed with an unspecified error          |
-| 24    | `ErrAssertionFailed`   | the actor failed some user-level assertion          |
-| 25-31 | reserved               |                                                     |
+| Code  | Status                   | Description                                         |
+|-------|--------------------------|-----------------------------------------------------|
+| 16    | `USR_ILLEGAL_ARGUMENT`   | invalid message parameters                          |
+| 17    | `USR_NOT_FOUND`          | message referenced something that doesn't exist     |
+| 18    | `USR_FORBIDDEN`          | operation forbidden                                 |
+| 19    | `USR_INSUFFICIENT_FUNDS` | insufficient funds for operation                    |
+| 20    | `USR_ILLEGAL_STATE`      | the actor is in an illegal state                    |
+| 21    | `USR_SERIALIZATION`      | actor failed to serialize or deserialize some state |
+| 22    | `USR_UNHANDLED_MESSAGE`  | actor cannot handle this message                    |
+| 23    | `USR_UNSPECIFIED`        | the actor failed with an unspecified error          |
+| 24    | `USR_ASSERTION_FAILED`   | the actor failed some user-level assertion          |
+| 25-31 | reserved                 |                                                     |
 
 Changes from pre-FVM Filecoin:
 
-1. Added `ExitCode::ErrUnhandledMessage` (replacing `ExitCode::SysErrInvalidMethod`).
-2. Added `ExitCode::ErrUnspecified`. This indicates that something unspecified went wrong, but we
-   don't know what the cause is. This is a sane default exit code when accurately determining the
-   underlying error is expensive, unreliable, complex, etc.
-3. Added `ExitCode::ErrAssertionFailed`. This means that the actor failed some user-level assertion
-   (e.g., the actor paniced, threw an uncaught exception, etc.).
+1. Added `USR_UNHANDLED_MESSAGE` (replacing `SYS_INVALID_METHOD`).
+2. Added `USR_UNSPECIFIED`. This indicates that something unspecified went wrong, but we don't know
+   what the cause is. This is a sane default exit code when accurately determining the underlying
+   error is expensive, unreliable, complex, etc.
+3. Added `USR_ASSERTION_FAILED`. This means that the actor failed some user-level assertion (e.g.,
+   the actor paniced, threw an uncaught exception, etc.).
 
 ## Syscall Error Numbers
 
@@ -122,24 +129,24 @@ Before the FVM, Filecoin didn't have a concept of syscall error numbers, only ex
 1. Pre-FVM, most syscalls returned string errors with no exit codes attached.
 2. There is no reliable mapping from syscall errors to exit codes. For example:
 
-    1. If a syscall returns with `ErrorNumber::IllegalArgument`, it means that an illegal argument was passed
-       to the syscall.
-    2. If an actor exits with `ExitCode::ErrIllegalArgument`, it means the message parameters weren't allowed.
+    1. If a syscall returns `IllegalArgument`, it means that an illegal argument was passed to
+       the syscall.
+    2. If an actor exits with `USR_ILLEGAL_ARGUMENT`, it means the message parameters weren't allowed.
 
     1 does not imply 2. An actor may pass illegal arguments to a syscall due to a bug in the actor,
     illegal state, etc.
 
 **Notes:**
 
-- We intentionally use `ErrorNumber::IllegalArgument` instead of `ErrorNumber::Serialization` in
-    non-IPLD syscalls, even if we're using CBOR.
-- `ErrorNumber::AssertionFailed` is a special error that indicates that some internal assertion
-    failed and that there is likely something wrong with a system actor or the Filecoin state-tree
-    itself. It exists to allow the network to continue in the face of bugs where the network
-    continuing is likely less harmful than the bug itself.
+- We intentionally use `IllegalArgument` instead of `Serialization` in non-IPLD syscalls, even if
+    we're using CBOR.
+- `AssertionFailed` is a special error that indicates that some internal assertion failed and that
+    there is likely something wrong with a system actor or the Filecoin state-tree itself. It exists
+    to allow the network to continue in the face of bugs where the network continuing is likely less
+    harmful than the bug itself.
 
-    It can't be caught by normal actors (and turns into a `ExitCode::SysErrAssertionFailed`
-    exit code on-chain), but may be caught by some system actors (e.g., cron).
+    It can't be caught by normal actors (and turns into a `SYS_ASSERTION_FAILED` exit code
+    on-chain), but may be caught by some system actors (e.g., cron).
 
     Uses:
 
