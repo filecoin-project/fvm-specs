@@ -3,6 +3,9 @@
 The syscall "ABI" defines how arguments are passed from actors to the FVM, and how values are
 returned from the FVM to actors.
 
+The actual syscall API can be found in the [SDK
+documentation](https://docs.rs/fvm_sdk/latest/fvm_sdk/sys/index.html).
+
 ## Syscall Safe Types
 
 A "syscall-safe" is a type that can safely be passed across the syscall ABI boundary. A syscall-safe
@@ -27,23 +30,35 @@ Concretely, we limit "syscall-safe" types to:
 Each syscall takes zero or more i32 and i64 arguments and returns exactly one i32 indicating the
 final status of the syscall (the "error number").
 
-- Pointers to syscall-safe types are passed as 32bit offsets into the Wasm module's memory.
-- Syscall-safe types are returned from the FVM to the Wasm module by writing to the Wasm module's
-  memory at a location specified by an "out pointer" parameter.
 - Signed integers are passed as two's-complement.
+- An actor may pass syscall-safe values to the FVM by passing a pointer (as a 32bit offset) to the
+  value in Wasm memory.
+- An actor may receive "returned" values from the FVM by passing a pointer (as a 32bit offset) to a
+  location in Wasm memory where the value should be written.
 
 ## Conventions
 
 Conventionally:
 
 - Byte buffers & strings are passed as pointer/length pairs.
-- CIDs are passed as pointer only.
-- Token amounts are passed as two `u64` values representing the "high" and "low" bits of a `u128`
-  attoFIL value.
-- If a syscall returns a non-zero-sized value (other than the error number), the syscall takes an
+- CIDs are passed as pointers to serialized CID buffers (with no explicit length).
+    - The FVM enforces a maximum digest size of 64 bytes (512bits).
+    - A 100 byte buffer is guaranteed to be large enough to hold any CID "returned" by a syscall.
+- In parameters, token amounts are passed as two `u64` values representing the "high" and "low" bits
+  of a `u128` attoFIL value, in that order.
+- If a syscall returns a fixed, non-empty value (other than the error number), the syscall takes an
   out-pointer as the first parameter.
+    - On call, the FVM will check that the return pointer is "valid". If it doesn't fall within the
+      actor's memory, or there isn't enough memory at the specified offset to fit the return value,
+      the syscall will return an `IllegalArgument` error without side effect.
+    - On return, the syscall will atomically write the return value to this pointer if, and only
+      if, the syscall succeeds.
+- Some syscalls return additional values through additional explicit out-pointers.
+- Some syscalls return variable-length values through a combination of an out-pointer and a length.
 
-By example, given the function:
+### Example 1
+
+For example, given the function:
 
 ```rust
 #[derive(Copy, Clone)]
@@ -54,7 +69,7 @@ struct ComplexValue {
 fn compute_thing(k: Cid, data: &[u8]) -> Result<ComplexValue, ErrorNumber>;
 ```
 
-We'd define it as a syscall a follows:
+Would be defined as the syscall:
 
 ```rust
 #[derive(Copy, Clone)]
@@ -66,13 +81,15 @@ struct ComplexValue {
 extern "C" fn compute_thing(result_ptr: *mut ComplexValue, k_offset: *const u8, data_offset: *const u8, data_length: u32) -> ErrorNumber;
 ```
 
-And would have a Wasm signature of:
+With a Wasm signature of:
 
 ```wat
 (func $compute_thing (param $result_ptr i32) (param $k_offset i32) (param $data_offset i32) (param $data_length u32) (result i32))
 ```
 
-However, a syscall that does not return a value:
+### Example 2
+
+A syscall that does not return a value, such as the following:
 
 ```rust
 fn do_thing(data: &[u8]) -> Result<(), ErrorNumber>;
@@ -85,3 +102,9 @@ extern "C" fn do_thing(data_offset: *const u8, data_length: u32) -> ErrorNumber;
 ```
 
 With _no_ out-pointer for the return value.
+
+It would have a Wasm signature of:
+
+```wat
+(func $do_thing (param $data_offset i32) (param $data_length u32) (result i32))
+```
