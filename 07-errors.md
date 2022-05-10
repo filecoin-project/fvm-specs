@@ -69,7 +69,7 @@ Notes:
    is found to be broken at runtime (e.g. state tree cannot be decoded, init actor is not found,
    etc.), or we've hit some kind of programming error. When this happens, the VM produces a consensus
    outcome by stamping the `SYS_INTERNAL_ERROR` exit code on the receipt of the offending message.
-   For context, check https://github.com/filecoin-project/ref-fvm/issues/508.
+   For context, read [filecoin-project/ref-fvm#508](https://github.com/filecoin-project/ref-fvm/issues/508).
 
 Changes from pre-FVM Filecoin:
 
