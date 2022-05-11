@@ -45,7 +45,7 @@ to apply. Actors may not call `vm::abort` with any system exit code.
 | 9     | `SYS_ILLEGAL_EXIT_CODE`    | message receiver aborted with an system exit code          |
 | 10    | `SYS_ASSERTION_FAILED`     | some internal assertion failed                             |
 | 11    | `SYS_MISSING_RETURN`       | the actor returned a block handle that doesn't exist       |
-| 11-15 | reserved                   |                                                            |
+| 12-15 | reserved                   |                                                            |
 
 Notes:
 
