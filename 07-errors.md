@@ -45,8 +45,7 @@ to apply. Actors may not call `vm::abort` with any system exit code.
 | 9     | `SYS_ILLEGAL_EXIT_CODE`    | message receiver aborted with an system exit code          |
 | 10    | `SYS_ASSERTION_FAILED`     | some internal assertion failed                             |
 | 11    | `SYS_MISSING_RETURN`       | the actor returned a block handle that doesn't exist       |
-| 12    | `SYS_INTERNAL_ERROR`       | the system encountered an internal/fatal error             |
-| 13-15 | reserved                   |                                                            |
+| 11-15 | reserved                   |                                                            |
 
 Notes:
 
@@ -68,7 +67,7 @@ Notes:
    execution. These errors are severe, and usually indicate a correctness flaw. Either something
    is found to be broken at runtime (e.g. state tree cannot be decoded, init actor is not found,
    etc.), or we've hit some kind of programming error. When this happens, the VM produces a consensus
-   outcome by stamping the `SYS_INTERNAL_ERROR` exit code on the receipt of the offending message.
+   outcome by stamping the `SYS_ASSERTION_FAILED` exit code on the receipt of the offending message.
    For context, read [filecoin-project/ref-fvm#508](https://github.com/filecoin-project/ref-fvm/issues/508).
 
 Changes from pre-FVM Filecoin:
