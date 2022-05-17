@@ -108,9 +108,9 @@ Changes from pre-FVM Filecoin:
 
 ## Syscall Error Numbers
 
-Syscall error numbers (`ErrorNumber`) are returned by syscalls to actors. They indicate that the
-syscall failed (without any side effects). The actor may choose to handle the error and continue, or
-abort (usually with one of the standard non-zero exit codes).
+Syscall error numbers ([`ErrorNumber`][errno]) are returned by [syscalls][] to actors. They indicate
+that the syscall failed (without any side effects). The actor may choose to handle the error and
+continue, or abort (usually with one of the standard non-zero exit codes).
 
 A return value of "0" means that the syscall succeeded.
 
@@ -127,8 +127,7 @@ A return value of "0" means that the syscall succeeded.
 | 9      | `IllegalCodec`      | specified codec is not allowed                         |
 | 10     | `Serialization`     | block format did not match specified codec             |
 | 11     | `Forbidden`         | operation is forbidden                                 |
-
-Changes from pre-FVM Filecoin:
+| 12     | `BufferTooSmall`    | the output buffer is too small                         |
 
 Before the FVM, Filecoin didn't have a concept of syscall error numbers, only exit codes. However:
 
@@ -149,183 +148,8 @@ Before the FVM, Filecoin didn't have a concept of syscall error numbers, only ex
 - `AssertionFailed` is a special error that indicates that some internal assertion failed and that
     there is likely something wrong with a system actor or the Filecoin state-tree itself. It exists
     to allow the network to continue in the face of bugs where the network continuing is likely less
-    harmful than the bug itself.
-
-    It can't be caught by normal actors (and turns into a `SYS_ASSERTION_FAILED` exit code
-    on-chain), but may be caught by some system actors (e.g., cron).
-
-    Uses:
-
-    - `actor::create_actor` fails because the init actor is in a bad state.
-    - `actor::resolve_address` fails because the init actor is in a bad state.
-
-### Error Numbers By Syscall
-
-#### `ipld::open`
-
-| Error             | Reason                                            |
-|-------------------|---------------------------------------------------|
-| `NotFound`        | when the target block isn't in the reachable set. |
-| `IllegalArgument` | if there's something wrong with the CID.          |
-
-#### `ipld::create`
-
-| Error             | Reason                                                  |
-|-------------------|---------------------------------------------------------|
-| `LimitExceeded`   | if the block is too big.                                |
-| `NotFound`        | one of the blocks's children isn't in the reachable set |
-| `IllegalCodec`    | if the passed codec isn't supported.                    |
-| `Serialization`   | if the passed block doesn't match the passed codec.     |
-| `IllegalArgument` | if the block isn't in memory, etc.                      |
-
-#### `ipld::read`
-
-| Error             | Reason                                            |
-|-------------------|---------------------------------------------------|
-| `InvalidHandle`   | if the handle isn't known.                        |
-| `IllegalArgument` | if the passed buffer isn't valid, in memory, etc. |
-
-#### `ipld::stat`
-
-| Error           | Reason                     |
-|-----------------|----------------------------|
-| `InvalidHandle` | if the handle isn't known. |
-
-#### `ipld::cid`
-
-| Error             | Reason                                            |
-|-------------------|---------------------------------------------------|
-| `InvalidHandle`   | if the handle isn't known.                        |
-| `IllegalCid`      | hash code and/or hash length aren't supported.    |
-| `IllegalArgument` | if the passed buffer isn't valid, in memory, etc. |
-
-#### `self::root`
-
-| Error              | Reason                                              |
-|--------------------|-----------------------------------------------------|
-| `IllegalOperation` | actor hasn't set the root yet, or has been deleted. |
-| `IllegalArgument`  | if the passed buffer isn't valid, in memory, etc.   |
-
-#### `self::set_root`
-
-| Error              | Reason                                          |
-|--------------------|-------------------------------------------------|
-| `IllegalOperation` | actor has been deleted                          |
-| `NotFound`         | specified root CID is not in the reachable set. |
-
-#### `self::self_destruct`
-
-| Error             | Reason                                                         |
-|-------------------|----------------------------------------------------------------|
-| `NotFound`        | beneficiary isn't found                                        |
-| `Forbidden`       | beneficiary is not allowed (usually means beneficiary is self) |
-| `IllegalArgument` | if the passed address buffer isn't valid, in memory, etc.      |
-
-#### `message::*`
-
-Cannot fail.
-
-#### `network::*`
-
-Cannot fail.
-
-#### `actor::resolve_address`
-
-| Error             | Reason                                                    |
-|-------------------|-----------------------------------------------------------|
-| `NotFound`        | target actor doesn't exist                                |
-| `IllegalArgument` | if the passed address buffer isn't valid, in memory, etc. |
-
-#### `actor::get_actor_code_cid`
-
-| Error             | Reason                                                    |
-|-------------------|-----------------------------------------------------------|
-| `NotFound`        | target actor doesn't exist                                |
-| `IllegalArgument` | if the passed address buffer isn't valid, in memory, etc. |
-
-#### `actor::new_actor_address`
-
-TODO (likely needs to go)
-
-#### `actor::create_actor`
-
-TODO
-
-#### `crypto::verify_signature`
-
-| Error             | Reason                                                |
-|-------------------|-------------------------------------------------------|
-| `IllegalArgument` | signature, address, or plaintext buffers are invalid. |
-
-#### `crypto::hash_blake2b`
-
-| Error             | Reason         |
-|-------------------|----------------|
-| `IllegalArgument` | invalid buffer |
-
-#### `crypto::verify_seal`
-
-| Error             | Reason   |
-|-------------------|----------|
-| `IllegalArgument` | anything |
-
-#### `crypto::verify_post`
-
-| Error             | Reason   |
-|-------------------|----------|
-| `IllegalArgument` | anything |
-
-#### `crypto::compute_unsealed_sector_cid`
-
-| Error             | Reason          |
-|-------------------|-----------------|
-| `IllegalArgument` | everything else |
-
-#### `crypto::verify_consensus_fault`
-
-| Error             | Reason                                 |
-|-------------------|----------------------------------------|
-| `LimitExceeded`   | exceeded lookback limit finding block. |
-| `IllegalArgument` | something else                         |
-
-#### `crypto::verify_aggregate_seals`
-
-| Error             | Reason                          |
-|-------------------|---------------------------------|
-| `LimitExceeded`   | exceeds seal aggregation limit. |
-| `IllegalArgument` | something is malformed          |
-
-#### `crypto::batch_verify_seals`
-
-| Error             | Reason              |
-|-------------------|---------------------|
-| `IllegalArgument` | if malformed params |
-
-#### `rand::get_*_randomness`
-
-| Error             | Reason                  |
-|-------------------|-------------------------|
-| `LimitExceeded`   | lookback exceeds limit. |
-| `IllegalArgument` | invalid buffer, etc.    |
-
-#### `gas::charge_gas`
-
-| Error             | Reason               |
-|-------------------|----------------------|
-| `IllegalArgument` | invalid name buffer. |
-
-#### `send::send`
-
-A syscall error in send means the _caller_ did something wrong. If the _callee_ panics, exceeds some
-limit, aborts, aborts with an invalid code, etc., the syscall will _succeed_ and the failure will be
-reflected in the exit code contained in the syscall's return value.
-
-| Error               | Reason                                               |
-|---------------------|------------------------------------------------------|
-| `NotFound`          | target actor does not exist and cannot be created.   |
-| `InsufficientFunds` | tried to send more FIL than available.               |
-| `InvalidHandle`     | parameters block not found.                          |
-| `LimitExceeded`     | recursion limit reached.                             |
-| `IllegalArgument`   | invalid recipient address buffer.                    |
+    harmful than the bug itself. This error isn't currently used.
 
 [trap]: https://webassembly.github.io/spec/core/intro/overview.html#trap
+[errno]: https://docs.rs/fvm_sdk/latest/fvm_sdk/sys/enum.ErrorNumber.html
+[syscalls]: https://docs.rs/fvm_sdk/latest/fvm_sdk/sys/index.html
