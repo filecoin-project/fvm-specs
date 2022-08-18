@@ -4,7 +4,7 @@
 >
 > ### This is a deprecated repo with historical relevance
 >
-> This repo is where original design of the Filecoin Virtual Machine was originally incubated.
+> This repo is where the original design of the Filecoin Virtual Machine was originally incubated.
 >
 > The FVM shipped to Filecoin's mainnet in [Network Version 16 (Skyr upgrade)](https://filecoin.io/blog/posts/filecoin-v16-network-upgrade-skyr/).
 >
@@ -12,10 +12,11 @@
 >
 > Today, most discussions and spec work take place in these venues:
 >
-> - **Early specification work, ideas, and design questions** are discussed in the [ref-fvm issue tracker](https://github.com/filecoin-project/ref-fvm/issues/).
->   - Technical design discussions and ideas can be found under the [`Kind: Discussion`](https://github.com/filecoin-project/ref-fvm/issues?q=is%3Aissue+label%3A%22Kind%3A+Discussion%22) and [`Kind: Idea`](https://github.com/filecoin-project/ref-fvm/issues?q=is%3Aissue+label%3A%22Kind%3A+Idea%22) labels.
+> - **Early specification work, ideas, and design questions** are discussed in the [ref-fvm issue tracker](https://github.com/filecoin-project/ref-fvm/issues/). Technical design discussions and ideas can be found under these labels:
+>    - [`Kind: Discussion`](https://github.com/filecoin-project/ref-fvm/issues?q=is%3Aissue+label%3A%22Kind%3A+Discussion%22)
+>    - [`Kind: Idea`](https://github.com/filecoin-project/ref-fvm/issues?q=is%3Aissue+label%3A%22Kind%3A+Idea%22)
 > - **Formal protocol discussions** involving the community at large take place in the [Filecoin Improvement Proposals discussion forum](https://github.com/filecoin-project/FIPs/discussions).
-> - **Formal technical proposals** are submitted as [Filecoin Improvement Proposals](https://github.com/filecoin-project/FIPs).
+> - **Formal technical proposals** are submitted as [Filecoin Improvement Proposals](https://github.com/filecoin-project/FIPs), and are subject to the governance process on their path to being scheduled for —and eventually released on— a network upgrade.
 
 ---
 
