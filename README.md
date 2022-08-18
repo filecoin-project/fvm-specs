@@ -1,4 +1,23 @@
-# Filecoin VM
+# [ARCHIVED] Filecoin Virtual Machine spec notebook
+
+---
+>
+> ### This is a deprecated repo with historical relevance
+>
+> This repo is where original design of the Filecoin Virtual Machine was originally incubated.
+>
+> The FVM shipped to Filecoin's mainnet in [Network Version 16 (Skyr upgrade)](https://filecoin.io/blog/posts/filecoin-v16-network-upgrade-skyr/).
+>
+> The final design of the FVM was formalized in [FIP-0030](https://github.com/filecoin-project/FIPs/blob/master/FIPS/fip-0030.md), its activation was proposed in [FIP-0031](https://github.com/filecoin-project/FIPs/blob/master/FIPS/fip-0031.md), and the new gas model was introduced in [FIP-0032](https://github.com/filecoin-project/FIPs/blob/master/FIPS/fip-0032.md).
+>
+> Today, most discussions and spec work take place in these venues:
+>
+> - **Early specification work, ideas, and design questions** are discussed in the [ref-fvm issue tracker](https://github.com/filecoin-project/ref-fvm/issues/).
+>   - Technical design discussions and ideas can be found under the [`Kind: Discussion`](https://github.com/filecoin-project/ref-fvm/issues?q=is%3Aissue+label%3A%22Kind%3A+Discussion%22) and [`Kind: Idea`](https://github.com/filecoin-project/ref-fvm/issues?q=is%3Aissue+label%3A%22Kind%3A+Idea%22) labels.
+> - **Formal protocol discussions** involving the community at large take place in the [Filecoin Improvement Proposals discussion forum](https://github.com/filecoin-project/FIPs/discussions).
+> - **Formal technical proposals** are submitted as [Filecoin Improvement Proposals](https://github.com/filecoin-project/FIPs).
+
+---
 
 This is the home of the FVM project in Filecoin.
 
